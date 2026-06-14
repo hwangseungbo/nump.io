@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open Market — Lifoneer</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="theme-color" content="#2e7d46" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .om-wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+
+    /* ── BANNER CAROUSEL ── */
+    .om-banner{position:relative;border-radius:22px;overflow:hidden;margin-top:22px;
+      box-shadow:0 18px 44px rgba(33,94,52,.18)}
+    .b-viewport{overflow:hidden}
+    .b-track{display:flex;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+    .b-slide{min-width:100%;height:288px;display:flex;flex-direction:column;justify-content:center;
+      padding:0 60px;color:#fff;position:relative;overflow:hidden}
+    .bs1{background:linear-gradient(120deg,#1f5e34,#2e7d46 55%,#43a05a)}
+    .bs2{background:linear-gradient(120deg,#246b5a,#2f8f6a 52%,#4aab61)}
+    .bs3{background:linear-gradient(120deg,#2e7d46,#4aab61 60%,#6fc24a)}
+    .b-slide .b-tag{font-size:12.5px;font-weight:800;letter-spacing:.08em;opacity:.9;margin-bottom:12px}
+    .b-slide h2{font-family:var(--font-head);font-size:clamp(24px,3vw,38px);font-weight:800;line-height:1.22;margin-bottom:12px;max-width:560px}
+    .b-slide p{font-size:14.5px;opacity:.92;margin-bottom:22px;max-width:500px;line-height:1.55}
+    .b-slide .b-cta{align-self:flex-start;background:#fff;color:var(--green-dd);font-weight:700;font-size:14px;
+      padding:12px 24px;border-radius:11px;box-shadow:0 8px 20px rgba(0,0,0,.16);transition:transform .15s}
+    .b-slide .b-cta:hover{transform:translateY(-2px)}
+    .b-art{position:absolute;right:92px;top:50%;transform:translateY(-50%);font-size:208px;opacity:.92;line-height:1;pointer-events:none;filter:drop-shadow(0 10px 22px rgba(0,0,0,.22))}
+    .b-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:42px;height:42px;border-radius:50%;
+      border:none;background:rgba(255,255,255,.22);color:#fff;font-size:24px;line-height:1;cursor:pointer;
+      -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);transition:background .15s}
+    .b-arrow:hover{background:rgba(255,255,255,.4)}
+    .b-prev{left:16px}.b-next{right:16px}
+    .b-dots{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:3}
+    .b-dot{width:8px;height:8px;border-radius:50%;border:none;background:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;padding:0}
+    .b-dot.active{background:#fff;width:22px;border-radius:5px}
+
+    /* ── SECTION HEADERS ── */
+    .om-sec{margin-top:48px}
+    .om-sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
+    .om-sec-head .t{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+    .om-sec-head h2{font-family:var(--font-head);font-size:21px;font-weight:800;color:var(--text)}
+    .om-sec-head .sub{font-size:12.5px;color:var(--text2);font-weight:500}
+    .om-sec-head .more{color:var(--green-d);font-weight:600;font-size:13px;white-space:nowrap}
+    .om-sec-head .more:hover{text-decoration:underline}
+
+    /* ── CATEGORY GRID (병변별) ── */
+    .cat-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+    .cat-tile{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 8px 16px;border-radius:16px;
+      background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+      border:1px solid rgba(255,255,255,.5);box-shadow:var(--shadow);transition:transform .16s,box-shadow .16s}
+    .cat-tile:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(40,70,45,.1)}
+    .cat-emoji{width:56px;height:56px;border-radius:50%;background:rgba(67,160,90,.1);
+      display:flex;align-items:center;justify-content:center}
+    .cat-emoji svg{width:30px;height:30px;stroke:var(--green-d);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+    .cat-name{font-size:12.5px;font-weight:700;color:var(--text);text-align:center}
+    @media(max-width:1000px){.cat-grid{grid-template-columns:repeat(4,1fr)}}
+    @media(max-width:600px){.cat-grid{grid-template-columns:repeat(3,1fr)}}
+
+    /* ── PRODUCT CARDS ── */
+    .h-row{display:flex;gap:16px;overflow-x:auto;scroll-behavior:smooth;padding:4px 2px 14px;scrollbar-width:thin}
+    .h-row::-webkit-scrollbar{height:8px}.h-row::-webkit-scrollbar-thumb{background:rgba(67,160,90,.25);border-radius:8px}
+    .h-row .pcard{min-width:236px;width:236px;flex:none}
+    .p-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+    @media(max-width:1100px){.p-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:760px){.p-grid{grid-template-columns:repeat(2,1fr)}}
+
+    .pcard{display:block;background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+      border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--shadow);
+      transition:transform .18s,box-shadow .18s,border-color .18s}
+    .pcard:hover{transform:translateY(-5px);border-color:rgba(67,160,90,.3);box-shadow:0 16px 40px rgba(40,70,45,.13)}
+    .pcard-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;background:#eef3ec;border-bottom:1px solid var(--border)}
+    .pcard-thumb svg{display:block;width:100%;height:100%}
+    .pcard-rank{position:absolute;top:10px;left:10px;background:var(--green-d);color:#fff;font-weight:800;font-size:12px;
+      padding:3px 10px;border-radius:999px;box-shadow:0 3px 9px rgba(0,0,0,.2);z-index:2}
+    .pcard-hot{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.92);color:#2e7d46;font-weight:700;
+      font-size:11px;padding:3px 9px;border-radius:999px;z-index:2}
+    .pcard-tag{position:absolute;bottom:10px;left:10px;background:rgba(31,59,45,.55);color:#fff;font-size:10px;font-weight:600;
+      padding:2px 9px;border-radius:999px;z-index:2;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+    .pcard-body{padding:13px 14px 14px}
+    .pcard-name{font-family:var(--font-head);font-size:14.5px;font-weight:800;color:var(--text);line-height:1.25}
+    .pcard-author{font-size:11px;color:var(--text3);margin-top:2px}
+    .pcard-desc{font-size:11.5px;color:var(--text2);line-height:1.45;margin:7px 0 10px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:33px}
+    .pcard-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .pcard-price{font-family:var(--font-head);font-size:16px;font-weight:800;color:var(--green-d)}
+    .pcard-meta{font-size:11px;color:var(--text3);white-space:nowrap}
+    .pcard-meta .star{color:var(--green);font-weight:700}
+
+    /* sell CTA strip */
+    .sell-strip{margin-top:50px;background:linear-gradient(135deg,#2e7d46,#43a05a);border-radius:18px;
+      padding:26px 32px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+      color:#fff;box-shadow:0 16px 38px rgba(33,94,52,.2)}
+    .sell-strip h3{font-family:var(--font-head);font-size:19px;font-weight:800;margin-bottom:4px}
+    .sell-strip p{font-size:13px;opacity:.9}
+    .sell-strip .b-cta{background:#fff;color:var(--green-dd);font-weight:700;font-size:14px;padding:12px 24px;border-radius:11px;white-space:nowrap}
+
+    @media(max-width:560px){
+      /* 좌/우 화살표를 살짝 줄이고 내용 여백을 키워 텍스트가 버튼과 안 겹치게(중앙으로 모음) */
+      .b-slide{padding:0 52px}
+      .b-art{font-size:138px;right:14px}
+      .b-arrow{width:34px;height:34px;font-size:20px}
+      .b-prev{left:8px}
+      .b-next{right:8px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVBAR ─────────────────────────────────────────────── -->
+<header class="navbar">
+  <div class="nav-inner">
+    <a class="logo" href="index.html">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="13" stroke="url(#lgm)" stroke-width="2"/>
+        <path d="M8 14h4l2-5 2 10 2-7 2 2h2" stroke="url(#lgm)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lgm" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop stop-color="#2e7d46"/><stop offset="1" stop-color="#6fc24a"/></linearGradient></defs>
+      </svg>
+      <span>Lifoneer</span>
+    </a>
+    <div class="nav-search">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="모델 · 작성자 · 병변 검색…" />
+      <kbd>/</kbd>
+    </div>
+    <nav class="nav-links">
+      <a class="nav-btn" href="index.html">Models</a>
+      <a class="nav-btn nav-market" href="open-market.html">Open Market</a>
+      <a class="nav-btn" href="#">Community</a>
+      <a class="nav-btn" href="#">Docs</a>
+    </nav>
+    <div class="nav-right">
+      <button class="btn-secondary">로그인</button>
+      <button class="btn-primary">판매 등록</button>
+    </div>
+  </div>
+</header>
+
+<div class="om-wrap">
+
+  <!-- ── EVENT BANNER CAROUSEL ── -->
+  <section class="om-banner">
+    <button class="b-arrow b-prev" id="bannerPrev" aria-label="이전 배너">‹</button>
+    <div class="b-viewport">
+      <div class="b-track" id="bannerTrack">
+        <div class="b-slide bs1">
+          <span class="b-art">💰</span>
+          <span class="b-tag">EVENT</span>
+          <h2>신규 모델 등록<br/>첫 거래 수수료 0%</h2>
+          <p>지금 내 의료 파운데이션 모델을 등록하면 첫 판매 수수료를 면제해 드립니다.</p>
+          <a class="b-cta" href="#">판매 시작하기 →</a>
+        </div>
+        <div class="b-slide bs2">
+          <span class="b-art">🔥</span>
+          <span class="b-tag">BEST OF THE WEEK</span>
+          <h2>금주의 베스트셀러 모델</h2>
+          <p>이번 주 가장 많이 거래된 의료 AI 모델을 한눈에 만나보세요.</p>
+          <a class="b-cta" href="#best">베스트 보기 →</a>
+        </div>
+        <div class="b-slide bs3">
+          <span class="b-art">🛡️</span>
+          <span class="b-tag">VERIFIED</span>
+          <h2>검증 배지로 신뢰를 더하세요</h2>
+          <p>성능·안전성 검증을 통과한 모델에 Lifoneer 인증 배지를 부여합니다.</p>
+          <a class="b-cta" href="#">검증 신청 →</a>
+        </div>
+      </div>
+    </div>
+    <button class="b-arrow b-next" id="bannerNext" aria-label="다음 배너">›</button>
+    <div class="b-dots" id="bannerDots"></div>
+  </section>
+
+  <!-- ── CATEGORIES (병변별) ── -->
+  <section class="om-sec">
+    <div class="om-sec-head"><div class="t"><h2>병변별 카테고리</h2><span class="sub">질환·병변으로 모델 찾기</span></div></div>
+    <div class="cat-grid" id="catGrid"></div>
+  </section>
+
+  <!-- ── 금주 최대 거래 모델 (가로 스크롤) ── -->
+  <section class="om-sec" id="best">
+    <div class="om-sec-head"><div class="t"><h2>🔥 금주 최대 거래 모델</h2><span class="sub">이번 주 거래량순</span></div><a class="more" href="#">전체 보기 →</a></div>
+    <div class="h-row" id="bestRow"></div>
+  </section>
+
+  <!-- ── 인기 의료 모델 (그리드) ── -->
+  <section class="om-sec">
+    <div class="om-sec-head"><div class="t"><h2>인기 의료 모델</h2><span class="sub">인기도순</span></div><a class="more" href="#">전체 보기 →</a></div>
+    <div class="p-grid" id="popGrid"></div>
+  </section>
+
+  <!-- ── SELL CTA ── -->
+  <section class="sell-strip">
+    <div>
+      <h3>내가 만든 모델, 지금 판매하세요</h3>
+      <p>등록부터 정산까지 — 의료 AI 모델을 안전하게 거래하는 가장 쉬운 방법.</p>
+    </div>
+    <a class="b-cta" href="#">＋ 모델 판매 등록</a>
+  </section>
+
+</div>
+
+<!-- ── FOOTER ─────────────────────────────────────────────── -->
+<footer class="footer" style="margin-top:56px">
+  <div class="footer-bottom" style="border-top:none;padding-top:0">
+    <p>© 2026 Lifoneer Inc.</p>
+    <div class="social-links"><a href="#">𝕏</a><a href="#">GitHub</a><a href="#">LinkedIn</a></div>
+  </div>
+</footer>
+
+<script src="js/models.js"></script>
+<script>
+  /* ── category data (병변별 12) — green line-art icons ── */
+  const CATS = [
+    {n:"뇌졸중", i:`<path d="M12 4.6a3.3 3.3 0 0 0-6.6.6A2.9 2.9 0 0 0 4.3 11a2.9 2.9 0 0 0 1.3 4.6A2.9 2.9 0 0 0 8.8 19.4H12Z"/><path d="M12 4.6a3.3 3.3 0 0 1 6.6.6A2.9 2.9 0 0 1 19.7 11a2.9 2.9 0 0 1-1.3 4.6 2.9 2.9 0 0 1-3.2 4.2H12Z"/>`},
+    {n:"종양·암", i:`<path d="M12 13.5c2.3 0 4.2-2.6 4.2-5.5S14.3 2.5 12 2.5 7.8 5.1 7.8 8s1.9 5.5 4.2 5.5Z"/><path d="M10.2 12.8 6.5 21l3.4-1.7L12 21.8"/><path d="M13.8 12.8 17.5 21l-3.4-1.7L12 21.8"/>`},
+    {n:"심혈관", i:`<path d="M12 20S4 14.5 4 8.8C4 6.1 6 4.2 8.4 4.2c1.5 0 2.8.8 3.6 2 .8-1.2 2.1-2 3.6-2C18 4.2 20 6.1 20 8.8 20 14.5 12 20 12 20Z"/><path d="M6.5 11h2.2l1.3-2.6 2 4.4 1.2-1.8h3.3"/>`},
+    {n:"폐·호흡기", i:`<path d="M12 4.5v6.5"/><path d="M12 8.2C11.2 7 9.7 6.5 8.6 7.1 7.3 7.8 7 9.4 7 11.3v4.4c0 1.9.6 3.3 2.1 3.3 1.8 0 2.9-1.6 2.9-3.5V8.2Z"/><path d="M12 8.2c.8-1.2 2.3-1.7 3.4-1.1C16.7 7.8 17 9.4 17 11.3v4.4c0 1.9-.6 3.3-2.1 3.3-1.8 0-2.9-1.6-2.9-3.5V8.2Z"/>`},
+    {n:"당뇨망막", i:`<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>`},
+    {n:"치매·신경", i:`<circle cx="6" cy="7" r="1.6"/><circle cx="18" cy="7" r="1.6"/><circle cx="6.5" cy="17.2" r="1.6"/><circle cx="17.5" cy="17.2" r="1.6"/><circle cx="12" cy="12" r="2.4"/><path d="M7.4 8 10 10.4M16.6 8 14 10.4M7.8 15.9 10 13.7M16.2 15.9 14 13.7"/>`},
+    {n:"간·소화기", i:`<path d="M4.5 8.6C4.5 7.2 5.7 6.2 7.3 6.2c3.9 0 5.8 1.2 9.7 1.2 1.2 0 1.9.8 1.9 1.9 0 4.3-3.3 8.6-7.8 8.6-4.3 0-6.6-3.5-6.6-9.3Z"/><path d="M8.5 10c1.6 1 3.4 1 5 0"/>`},
+    {n:"골·근골격", i:`<path d="M8.7 15.3 15.3 8.7"/><circle cx="6.6" cy="17.4" r="1.7"/><circle cx="8.4" cy="15.6" r="1.7"/><circle cx="15.6" cy="8.4" r="1.7"/><circle cx="17.4" cy="6.6" r="1.7"/>`},
+    {n:"피부", i:`<path d="M4 9.5C6.5 7.5 9.2 6.5 12 6.5s5.5 1 8 3"/><path d="M4 13.5c2.5-2 5.2-3 8-3s5.5 1 8 3"/><path d="M4 17.5c2.5-2 5.2-3 8-3s5.5 1 8 3"/>`},
+    {n:"감염", i:`<circle cx="12" cy="12" r="4.3"/><path d="M12 3.2v3.5M12 17.3v3.5M3.2 12h3.5M17.3 12h3.5M5.8 5.8 8.3 8.3M15.7 15.7l2.5 2.5M18.2 5.8 15.7 8.3M8.3 15.7 5.8 18.2"/><circle cx="10.6" cy="11" r=".6"/><circle cx="13.4" cy="13" r=".6"/>`},
+    {n:"신장·비뇨", i:`<path d="M14.3 4C17.4 4 20 7.6 20 12s-2.6 8-5.7 8c-2 0-3.2-1.5-3.2-3.5 0-1.5-1-2.5-2.5-2.5S6.1 11.5 6.1 9.7C6.1 6.5 8.5 4 11.4 4c1.6 0 2.8 1.1 2.8 2.5"/>`},
+    {n:"유전·내분비", i:`<path d="M8 3c0 4.5 8 6 8 9s-8 4.5-8 9"/><path d="M16 3c0 4.5-8 6-8 9s8 4.5 8 9"/><path d="M9.3 6.5h5.4M9.6 9.5h4.8M9.6 14.5h4.8M9.3 17.5h5.4"/>`}
+  ];
+  document.getElementById('catGrid').innerHTML = CATS.map(c =>
+    `<a class="cat-tile" href="#"><span class="cat-emoji"><svg viewBox="0 0 24 24" fill="none">${c.i}</svg></span><span class="cat-name">${c.n}</span></a>`
+  ).join('');
+
+  /* ── listings (user-created models) — reuse Lifoneer model visuals ── */
+  const LISTINGS = [
+    {name:"RadFM-7B",author:"@yonsei-lab",visual:"xrayLung",price:"₩1.2M",rating:"4.9",trades:128,likes:1430,desc:"흉부 X-ray·CT 판독 파운데이션 모델",tag:"폐·호흡기"},
+    {name:"StrokeNet-2B",author:"@snuh-neuro",visual:"brainMri",price:"₩1.5M",rating:"4.8",trades:112,likes:1210,desc:"뇌 CT 기반 뇌졸중 조기 검출",tag:"뇌졸중"},
+    {name:"CardioNet-2B",author:"@amc-heart",visual:"ecgWave",price:"₩0.9M",rating:"4.9",trades:97,likes:1180,desc:"심전도 부정맥 분류·심부전 예측",tag:"심혈관"},
+    {name:"PathoViT-L",author:"@snu-path",visual:"pathologySlide",price:"₩1.8M",rating:"4.7",trades:84,likes:910,desc:"병리 슬라이드 종양 검출·등급 분류",tag:"종양·암"},
+    {name:"RetinaFM-B",author:"@kng-eye",visual:"retinalScan",price:"₩0.7M",rating:"4.8",trades:76,likes:1340,desc:"당뇨망막병증 등급 자동 판정",tag:"당뇨망막"},
+    {name:"NeuroFM-3B",author:"@kaist-med",visual:"neuronNet",price:"₩0.8M",rating:"4.6",trades:71,likes:880,desc:"뇌파 기반 치매 선별 모델",tag:"치매·신경"},
+    {name:"DermFM-B",author:"@gachon-skin",visual:"skinDerm",price:"₩0.4M",rating:"4.6",trades:64,likes:1520,desc:"피부 병변 다중 분류·악성 판별",tag:"피부"},
+    {name:"BoneAge-Net",author:"@sev-ortho",visual:"ctScan",price:"₩0.5M",rating:"4.7",trades:58,likes:760,desc:"골연령·골절 X-ray 판독",tag:"골·근골격"},
+    {name:"GenomeLM-1B",author:"@postech-bio",visual:"dnaHelix",price:"₩2.0M",rating:"5.0",trades:42,likes:1670,desc:"유전체 변이 해석·희귀질환 예측",tag:"유전·내분비"},
+    {name:"InfectScan",author:"@kdca-ai",visual:"microbiome",price:"₩0.6M",rating:"4.7",trades:51,likes:990,desc:"감염·염증 영상 분류",tag:"감염"},
+    {name:"LiverFM",author:"@amc-gi",visual:"cellSegment",price:"₩1.1M",rating:"4.8",trades:47,likes:840,desc:"간 섬유화 단계 평가",tag:"간·소화기"},
+    {name:"RenalNet",author:"@knu-uro",visual:"heatmap",price:"₩0.6M",rating:"4.5",trades:39,likes:720,desc:"신장 기능·결석 영상 분석",tag:"신장·비뇨"}
+  ];
+  function kfmt(n){ return n>=1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'K' : ''+n; }
+  function card(m,mode,rank){
+    const vis = (typeof visuals!=='undefined' && visuals[m.visual]) ? visuals[m.visual] : '';
+    let badge = `<span class="pcard-tag">${m.tag}</span>`;
+    if(mode==='row'){ badge = `<span class="pcard-rank">${rank}</span><span class="pcard-hot">🔥 ${m.trades}</span><span class="pcard-tag">${m.tag}</span>`; }
+    const meta = mode==='row' ? `<span class="star">★ ${m.rating}</span> · 거래 ${m.trades}` : `<span class="star">★ ${m.rating}</span> · ♥ ${kfmt(m.likes)}`;
+    return `<a class="pcard" href="#">
+      <div class="pcard-thumb">${vis}${badge}</div>
+      <div class="pcard-body">
+        <div class="pcard-name">${m.name}</div>
+        <div class="pcard-author">${m.author}</div>
+        <div class="pcard-desc">${m.desc}</div>
+        <div class="pcard-bottom"><span class="pcard-price">${m.price}</span><span class="pcard-meta">${meta}</span></div>
+      </div>
+    </a>`;
+  }
+  const best = [...LISTINGS].sort((a,b)=>b.trades-a.trades);
+  const pop  = [...LISTINGS].sort((a,b)=>b.likes-a.likes);
+  document.getElementById('bestRow').innerHTML = best.map((m,i)=>card(m,'row',i+1)).join('');
+  document.getElementById('popGrid').innerHTML = pop.slice(0,8).map((m)=>card(m,'grid')).join('');
+
+  /* ── banner carousel (seamless forward loop) ── */
+  (function(){
+    const track=document.getElementById('bannerTrack');
+    const real=track.children.length;
+    track.appendChild(track.children[0].cloneNode(true)); // clone 1st slide for seamless wrap
+    const dotsWrap=document.getElementById('bannerDots');
+    let pos=0, timer=null;
+    for(let k=0;k<real;k++){ const d=document.createElement('button'); d.className='b-dot'+(k===0?' active':''); d.addEventListener('click',()=>{ pos=k; render(true); reset(); }); dotsWrap.appendChild(d); }
+    const dots=dotsWrap.children;
+    function render(withT){
+      track.style.transition = withT ? 'transform .5s cubic-bezier(.4,0,.2,1)' : 'none';
+      track.style.transform = 'translateX(-'+(pos*100)+'%)';
+      const active = pos % real;
+      for(let k=0;k<real;k++) dots[k].classList.toggle('active', k===active);
+    }
+    function next(){
+      pos++;
+      render(true);
+      if(pos===real){ setTimeout(()=>{ pos=0; render(false); }, 540); } // after sliding into clone, snap back instantly
+    }
+    function prev(){ pos=(pos-1+real)%real; render(true); }
+    function start(){ clearInterval(timer); timer=setInterval(next,5000); }
+    function reset(){ start(); }
+    document.getElementById('bannerNext').addEventListener('click',()=>{ next(); reset(); });
+    document.getElementById('bannerPrev').addEventListener('click',()=>{ prev(); reset(); });
+    const banner=document.querySelector('.om-banner');
+    banner.addEventListener('mouseenter',()=>clearInterval(timer));
+    banner.addEventListener('mouseleave',start);
+    render(false);
+    start();
+  })();
+</script>
+</body>
+</html>

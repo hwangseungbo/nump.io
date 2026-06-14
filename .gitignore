@@ -1,0 +1,18 @@
+# OMC state
+.omc/
+lifoneer/.omc/
+
+# Backups / scratch / legacy
+lifoneer/_backup/
+lifoneer/v10/
+lifoneer/files.zip
+
+# Generated build copy (regenerate with sync-public)
+public/
+
+# OS / editor cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
+node_modules/

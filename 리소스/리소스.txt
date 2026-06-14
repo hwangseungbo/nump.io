@@ -1,0 +1,49 @@
+로고 및 메인 그래픽
+
+Basil Nexus 로고 (그라데이션 및 잎)
+
+메인 환영 영역 Basil Nexus AI 아바타 및 잎 프레임
+
+
+< 서비스 아이콘 >
+
+SageFM 뇌/뇌파 아이콘
+
+MintNote 마이크/잎 아이콘
+
+ThymeCare 십자가/방패 아이콘
+
+Rosemary Insight 잎사귀 아이콘
+
+LavenderRx 알약 아이콘
+
+Chamomile24 말풍선 아이콘
+
+CT/MRI 분석 장비 아이콘
+
+의료 회계 관리 계산기 아이콘
+
+
+< 기능 아이콘 >
+
+서비스/모델 특징 아이콘 (On-Premise, HERB AI, Smart Clinic)
+
+상단 메뉴 아이콘 (알림, 도움말, 설정)
+
+검색 돋보기 아이콘
+
+화살표 아이콘 (바로가기, 전체 환자 보기, 전체 활동 보기, 전체 공지 보기)
+
+공지사항 NEW 태그 아이콘
+
+아바타 및 캐릭터:
+
+의사(Doctor), 간호사(Nurse), 환자/가족(Patient/Family) 아바타
+
+최근 환자 목록 내 아바타 3종
+
+상단 메인 Basil Nexus AI 캐릭터 (단독)
+
+하단 정보:
+
+저작권 문구 및 NUMP Smart Clinic HERB 텍스트

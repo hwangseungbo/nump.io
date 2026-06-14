@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lifoneer — Medical AI Model Marketplace</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="theme-color" content="#2e7d46" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ── NAVBAR ─────────────────────────────────────────────── -->
+<header class="navbar">
+  <div class="nav-inner">
+    <a class="logo" href="#">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="13" stroke="url(#lg1)" stroke-width="2"/>
+        <path d="M8 14h4l2-5 2 10 2-7 2 2h2" stroke="url(#lg1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lg1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop stop-color="#2e7d46"/><stop offset="1" stop-color="#6fc24a"/></linearGradient></defs>
+      </svg>
+      <span>Lifoneer</span>
+    </a>
+    <div class="nav-search">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="모델 검색… (예: MedGemma, Radiology, Drug)" />
+      <kbd>/</kbd>
+    </div>
+    <nav class="nav-links">
+      <div class="nav-item dropdown">
+        <button class="nav-btn">Models <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="dropdown-menu">
+          <div class="dropdown-section">
+            <p class="dropdown-label">Browse</p>
+            <a href="#models-section" class="dropdown-item" data-quickfilter="all"><span class="di-icon">🧠</span> All Models</a>
+            <a href="#models-section" class="dropdown-item" data-quickfilter="nlp"><span class="di-icon">📝</span> NLP / Text</a>
+            <a href="#models-section" class="dropdown-item" data-quickfilter="imaging"><span class="di-icon">🫁</span> Imaging</a>
+            <a href="#models-section" class="dropdown-item" data-quickfilter="genomics"><span class="di-icon">🧬</span> Genomics</a>
+            <a href="#models-section" class="dropdown-item" data-quickfilter="drug"><span class="di-icon">💊</span> Drug Discovery</a>
+          </div>
+          <div class="dropdown-section">
+            <p class="dropdown-label">Actions</p>
+            <a href="#" class="dropdown-item"><span class="di-icon">⬆️</span> Upload a Model</a>
+            <a href="#" class="dropdown-item"><span class="di-icon">📖</span> Documentation</a>
+          </div>
+        </div>
+      </div>
+      <div class="nav-item dropdown">
+        <button class="nav-btn">Datasets <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="dropdown-menu">
+          <div class="dropdown-section">
+            <p class="dropdown-label">Browse</p>
+            <a href="#" class="dropdown-item"><span class="di-icon">🩻</span> Radiology</a>
+            <a href="#" class="dropdown-item"><span class="di-icon">🔬</span> Pathology</a>
+            <a href="#" class="dropdown-item"><span class="di-icon">📊</span> Clinical Trials</a>
+          </div>
+        </div>
+      </div>
+      <a class="nav-btn nav-market" href="open-market.html">Open Market</a>
+      <a class="nav-btn" href="#">Community</a>
+      <a class="nav-btn" href="#">Docs</a>
+    </nav>
+    <div class="nav-right">
+      <button class="btn-secondary">Log In</button>
+      <button class="btn-primary">Sign Up</button>
+    </div>
+  </div>
+</header>
+
+<!-- ── HERO ───────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">🏥 The Open Medical AI Platform</div>
+    <h1><em>Pioneer your Life</em></h1>
+    <div class="hero-actions">
+      <a href="#models-section"><button class="btn-primary btn-lg">모델 탐색하기</button></a>
+      <div class="hero-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="heroSearchInput" type="text" placeholder="모델명, 기관, 태그 검색…" />
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-n">56+</span><span class="stat-l">공개 모델</span></div>
+      <div class="stat-div"></div>
+      <div class="stat"><span class="stat-n">10+</span><span class="stat-l">연구기관</span></div>
+      <div class="stat-div"></div>
+      <div class="stat"><span class="stat-n">무료</span><span class="stat-l">오픈소스</span></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── OPEN MARKET CTA ─────────────────────────────────────── -->
+<section class="market-cta">
+  <div class="market-inner">
+    <div class="market-text">
+      <span class="market-badge">✦ NEW · Open Market</span>
+      <h2>직접 만든 의료 파운데이션 모델을<br/>거래하세요</h2>
+      <p>연구자·개발자가 직접 학습시킨 의료 AI 파운데이션 모델을 등록하고 사고파는 오픈 마켓. 무료 컬렉션을 넘어, 당신의 모델을 수익화하세요.</p>
+      <div class="market-actions">
+        <a href="open-market.html" class="btn-market-pri">마켓 둘러보기 →</a>
+        <a href="open-market.html" class="btn-market-sec">내 모델 판매하기</a>
+      </div>
+      <div class="market-feats">
+        <div class="mfeat"><span class="mfeat-ic">💰</span><div><b>모델 수익화</b><span>판매·라이선싱 수익</span></div></div>
+        <div class="mfeat"><span class="mfeat-ic">✓</span><div><b>검증된 모델</b><span>성능·안전성 검수</span></div></div>
+        <div class="mfeat"><span class="mfeat-ic">🔒</span><div><b>안전 거래</b><span>라이선스·결제 보호</span></div></div>
+      </div>
+    </div>
+    <div class="market-visual" aria-hidden="true">
+      <div class="mvcard">
+        <div class="mvc-row"><span class="mvc-logo">R</span><div class="mvc-id"><b>RadFM-7B</b><span>@yonsei-lab</span></div><span class="mvc-price">₩1.2M</span></div>
+        <svg class="mvc-wave" viewBox="0 0 240 24" fill="none"><polyline points="0,16 24,16 36,6 50,18 64,10 80,14 96,4 112,16 240,16" stroke="#2e7d46" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="mvc-meta"><span class="star">★ 4.9</span><span>32 sales</span><span>CT·MRI</span></div>
+      </div>
+      <div class="mvcard">
+        <div class="mvc-row"><span class="mvc-logo">N</span><div class="mvc-id"><b>NeuroFM-3B</b><span>@kaist-med</span></div><span class="mvc-price">₩0.8M</span></div>
+        <svg class="mvc-wave" viewBox="0 0 240 24" fill="none"><polyline points="0,12 30,12 42,4 54,20 66,8 78,16 90,12 240,12" stroke="#43a05a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="mvc-meta"><span class="star">★ 4.8</span><span>21 sales</span><span>EEG</span></div>
+      </div>
+      <div class="mvcard">
+        <div class="mvc-row"><span class="mvc-logo">P</span><div class="mvc-id"><b>PathoViT-L</b><span>@snu-path</span></div><span class="mvc-price">₩1.5M</span></div>
+        <svg class="mvc-wave" viewBox="0 0 240 24" fill="none"><polyline points="0,16 24,16 36,6 50,18 64,10 80,14 96,4 112,16 240,16" stroke="#2e7d46" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="mvc-meta"><span class="star">★ 4.7</span><span>14 sales</span><span>Pathology</span></div>
+      </div>
+      <div class="mvcard">
+        <div class="mvc-row"><span class="mvc-logo">C</span><div class="mvc-id"><b>CardioNet-2B</b><span>@amc-heart</span></div><span class="mvc-price">₩0.6M</span></div>
+        <svg class="mvc-wave" viewBox="0 0 240 24" fill="none"><polyline points="0,12 30,12 42,4 54,20 66,8 78,16 90,12 240,12" stroke="#43a05a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="mvc-meta"><span class="star">★ 4.9</span><span>27 sales</span><span>ECG</span></div>
+      </div>
+      <div class="mvcard">
+        <div class="mvc-row"><span class="mvc-logo">D</span><div class="mvc-id"><b>DermFM-B</b><span>@gachon-skin</span></div><span class="mvc-price">₩0.4M</span></div>
+        <svg class="mvc-wave" viewBox="0 0 240 24" fill="none"><polyline points="0,16 24,16 36,6 50,18 64,10 80,14 96,4 112,16 240,16" stroke="#2e7d46" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="mvc-meta"><span class="star">★ 4.6</span><span>38 sales</span><span>Derm</span></div>
+      </div>
+      <div class="mvcard">
+        <div class="mvc-row"><span class="mvc-logo">G</span><div class="mvc-id"><b>GenomeLM-1B</b><span>@postech-bio</span></div><span class="mvc-price">₩2.0M</span></div>
+        <svg class="mvc-wave" viewBox="0 0 240 24" fill="none"><polyline points="0,12 30,12 42,4 54,20 66,8 78,16 90,12 240,12" stroke="#43a05a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="mvc-meta"><span class="star">★ 5.0</span><span>9 sales</span><span>Genome</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── BROWSE ──────────────────────────────────────────────── -->
+<div class="section-browse">
+  <div class="inner">
+    <h2 class="section-title">Browse by Specialty</h2>
+    <p class="section-sub">전문 분야별 모델 탐색</p>
+    <div class="categories-grid">
+      <button class="cat-card" data-filter="nlp"><div class="cat-icon">📝</div><h3>NLP / LLM</h3><p>임상 텍스트·NER·QA</p></button>
+      <button class="cat-card" data-filter="imaging"><div class="cat-icon">🩻</div><h3>Medical Imaging</h3><p>X-ray·CT·MRI·병리</p></button>
+      <button class="cat-card" data-filter="genomics"><div class="cat-icon">🧬</div><h3>Genomics</h3><p>유전체·단백질·DNA</p></button>
+      <button class="cat-card" data-filter="drug"><div class="cat-icon">💊</div><h3>Drug Discovery</h3><p>신약 개발·분자 설계</p></button>
+      <button class="cat-card" data-filter="multimodal"><div class="cat-icon">🧠</div><h3>Multimodal</h3><p>이미지+텍스트 통합</p></button>
+      <button class="cat-card" data-filter="all"><div class="cat-icon">🔬</div><h3>전체 보기</h3><p>모든 56개 모델</p></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── GRADIENT TRANSITION ─────────────────────────────────── -->
+<div class="section-transition"></div>
+
+<!-- ── MODELS SECTION ─────────────────────────────────────── -->
+<section class="section" id="models-section">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">🌐 공개 의료 AI 모델 컬렉션</h2>
+      <p class="section-sub">실제 다운로드 가능한 오픈소스 의료 AI 모델 — Hugging Face / GitHub / NVIDIA NGC</p>
+    </div>
+  </div>
+  <div class="models-grid" id="modelsGrid"></div>
+  <div class="source-notice">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    모든 모델은 각 기관이 공개한 오픈소스입니다. "다운로드" 클릭 시 Hugging Face / GitHub / NVIDIA NGC로 이동합니다. 상업적 이용 전 각 모델의 라이선스를 확인하세요.
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="logo" href="#">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="13" stroke="url(#lg2)" stroke-width="2"/>
+          <path d="M8 14h4l2-5 2 10 2-7 2 2h2" stroke="url(#lg2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="lg2" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop stop-color="#2e7d46"/><stop offset="1" stop-color="#6fc24a"/></linearGradient></defs>
+        </svg>
+        <span>Lifoneer</span>
+      </a>
+      <p>The open platform for medical AI — discover, share, and monetize models advancing human health.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col"><h4>Platform</h4><a href="#">Models</a><a href="#">Datasets</a><a href="#">Pricing</a></div>
+      <div class="footer-col"><h4>Community</h4><a href="#">Forum</a><a href="#">Blog</a><a href="#">Challenges</a></div>
+      <div class="footer-col"><h4>Company</h4><a href="#">About</a><a href="#">Careers</a><a href="#">Contact</a></div>
+      <div class="footer-col"><h4>Legal</h4><a href="#">Privacy</a><a href="#">Terms</a></div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 Lifoneer Inc.</p>
+    <div class="social-links"><a href="#">𝕏</a><a href="#">GitHub</a><a href="#">LinkedIn</a></div>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script src="js/models.js"></script>
+</body>
+</html>
