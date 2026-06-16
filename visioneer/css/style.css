@@ -43,7 +43,7 @@ em{font-style:normal;background:var(--grad);-webkit-background-clip:text;backgro
 .nav-btn{padding:8px 12px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--text2);transition:.15s}
 .nav-btn:hover{background:var(--bg2);color:var(--blue-d)}
 .nav-cta{background:var(--grad);color:#fff!important}
-.nav-cta:hover{filter:brightness(1.05)}
+.nav-cta:hover{background:var(--grad);color:#fff!important;filter:brightness(1.08)}
 
 /* ── HERO ── */
 .hero{max-width:var(--maxw);margin:0 auto;padding:54px 24px 36px}

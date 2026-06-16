@@ -289,6 +289,9 @@ body::before{
 /* ── NAV: Open Market link ───────────────────────────── */
 .nav-btn.nav-market{color:var(--green-d);font-weight:700}
 .nav-btn.nav-market:hover{background:rgba(67,160,90,.1);color:var(--green-dd)}
+/* 자매 사이트(Visioneer) 버튼 — 블루 정체성 */
+.nav-btn.nav-vision{background:linear-gradient(120deg,#38bdf8,#2563eb);color:#fff;font-weight:700}
+.nav-btn.nav-vision:hover{background:linear-gradient(120deg,#38bdf8,#2563eb);color:#fff;filter:brightness(1.08)}
 
 /* ── OPEN MARKET CTA BANNER ──────────────────────────── */
 .market-cta{padding:34px 28px 10px}
