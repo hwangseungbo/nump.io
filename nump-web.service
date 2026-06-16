@@ -1,0 +1,21 @@
+[Unit]
+Description=NUMP / Basil Nexus static web server (Node server.js)
+Documentation=https://github.com/hwangseungbo/nump.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nump
+Group=nump
+WorkingDirectory=/home/nump/Basil_Nexus/nump.io-main
+ExecStart=/home/nump/.local/node/bin/node server.js
+Environment=PORT=8088
+Restart=always
+RestartSec=3
+# 로그는 journald 로 (journalctl -u nump-web)
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

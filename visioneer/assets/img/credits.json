@@ -1,0 +1,66 @@
+{
+  "xray": {
+    "file": "xray.jpg",
+    "title": "Normal posteroanterior (PA) chest radiograph (X-ray).jpg",
+    "author": "Mikael Häggström",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Normal_posteroanterior_(PA)_chest_radiograph_(X-ray).jpg"
+  },
+  "ct": {
+    "file": "ct.jpg",
+    "title": "High-resolution computed tomograph of a normal thorax, axial plane (86).jpg",
+    "author": "Mikael Häggström",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:High-resolution_computed_tomograph_of_a_normal_thorax,_axial_plane_(86).jpg"
+  },
+  "mri": {
+    "file": "mri.jpg",
+    "title": "T2 weighted axial section of MRI brain showing cystic encephalomyelitic changes of right cerebellum.jpg",
+    "author": "Cerevisae",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:T2_weighted_axial_section_of_MRI_brain_showing_cystic_encephalomyelitic_changes_of_right_cerebellum.jpg"
+  },
+  "ultrasound": {
+    "file": "ultrasound.jpg",
+    "title": "CRL Crown rump length 12 weeks ecografia Dr. Wolfgang Moroder.jpg",
+    "author": "This Photo was taken by Wolfgang Moroder.  \n\nFeel free to use my photos, but ple",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:CRL_Crown_rump_length_12_weeks_ecografia_Dr._Wolfgang_Moroder.jpg"
+  },
+  "pathology": {
+    "file": "pathology.jpg",
+    "title": "Hematoxylin and Eosin stained photomicrograph of an elastofibroma LDRT.jpg",
+    "author": "Soca1zim",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Hematoxylin_and_Eosin_stained_photomicrograph_of_an_elastofibroma_LDRT.jpg"
+  },
+  "retina": {
+    "file": "retina.jpg",
+    "title": "Fundus photograph Retina OS.jpg",
+    "author": "Ktkvtsh",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Fundus_photograph_Retina_OS.jpg"
+  },
+  "derm": {
+    "file": "derm.jpg",
+    "title": "Dermatoscopy Nevus Reticular.jpg",
+    "author": "Philipp Tschandl",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Dermatoscopy_Nevus_Reticular.jpg"
+  },
+  "endoscopy": {
+    "file": "endoscopy.jpg",
+    "title": "Tubulovillous Polyp of the Colon 1.jpg",
+    "author": "Unknown",
+    "license": "Public domain",
+    "license_url": "",
+    "source": "https://commons.wikimedia.org/wiki/File:Tubulovillous_Polyp_of_the_Colon_1.jpg"
+  }
+}

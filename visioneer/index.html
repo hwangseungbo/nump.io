@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Visioneer — Medical Imaging AI Model Hub</title>
+<meta name="description" content="의료 영상을 읽는 AI 비전 모델 허브 — 세그멘테이션·검출·분류·파운데이션·복원 모델을 작업과 모달리티로 탐색하세요." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="icon" href="../assets/favicon.ico" sizes="any" />
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ── NAVBAR ───────────────────────────────────────────── -->
+<header class="navbar">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 28 28" fill="none"><rect x="2" y="2" width="24" height="24" rx="7" stroke="url(#vg)" stroke-width="2"/><circle cx="14" cy="14" r="5.5" stroke="url(#vg)" stroke-width="2"/><circle cx="14" cy="14" r="1.6" fill="#22d3ee"/><path d="M14 2v3M14 23v3M2 14h3M23 14h3" stroke="url(#vg)" stroke-width="2" stroke-linecap="round"/><defs><linearGradient id="vg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs></svg>
+      </span>
+      <span class="brand-name">Visioneer</span>
+    </a>
+    <div class="nav-search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" class="v-search" placeholder="모델·기관·태그 검색…" aria-label="검색" />
+    </div>
+    <nav class="nav-links">
+      <a class="nav-btn" href="#tasks">Tasks</a>
+      <a class="nav-btn" href="#models-section">Models</a>
+      <a class="nav-btn" href="#modalities">Modalities</a>
+      <a class="nav-btn" href="../index.html">← Basil Nexus</a>
+      <a class="nav-btn nav-cta" href="../lifoneer/index.html">Lifoneer</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ── HERO ─────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-grid">
+    <div class="hero-text">
+      <div class="hero-badge">🩻 The Open Medical Imaging AI Hub</div>
+      <h1>의료 영상을 <em>읽는</em><br/>AI 비전 모델 허브</h1>
+      <p class="hero-sub">CT·MRI·X-ray·병리까지 — 세그멘테이션, 검출, 분류, 파운데이션, 복원 모델을 <b>작업</b>과 <b>모달리티</b>로 탐색하세요.</p>
+      <div class="hero-actions">
+        <a href="#models-section" class="btn-primary">모델 탐색하기</a>
+        <div class="hero-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" class="v-search" placeholder="예: MedSAM, 분할, 안저…" aria-label="검색" />
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-n" id="statModels">–</span><span class="stat-l">공개 모델</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-n" id="statTasks">–</span><span class="stat-l">작업 유형</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-n" id="statMods">–</span><span class="stat-l">영상 모달리티</span></div>
+      </div>
+    </div>
+
+    <!-- 스캔 위 AI 오버레이 데모 (클릭 시 X-ray 뷰어로 이동) -->
+    <div class="hero-visual">
+      <a class="scan-card" href="https://121.158.168.10:8443/NUMP-Xray-Viewer-Annotator-osteoporosis.html" target="_blank" rel="noopener" aria-label="NUMP X-ray 뷰어·골다공증 주석 도구 열기">
+        <div class="scan-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="scan-label">CT · axial</span></div>
+        <div class="scan-stage">
+          <img class="scan-img" src="assets/img/ct.jpg" alt="" />
+          <svg class="scan-ovl" viewBox="0 0 700 500" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- segmentation mask (draws in) -->
+            <path class="seg-mask" d="M196 206q-46 54 4 102q50 34 94 4q36-44 6-94q-48-36-104-12z" fill="#22d3ee" fill-opacity=".22" stroke="#22d3ee" stroke-width="3"/>
+            <path class="seg-mask2" d="M512 190q48 48 12 96q-46 34-90 4q-32-44 0-90q44-34 78-10z" fill="#38bdf8" fill-opacity=".18" stroke="#38bdf8" stroke-width="3"/>
+            <!-- detection box (pulses) -->
+            <g class="det-box">
+              <rect x="146" y="186" width="180" height="150" fill="none" stroke="#fbbf24" stroke-width="3"/>
+              <rect x="146" y="165" width="126" height="21" fill="#fbbf24"/><text x="155" y="182" font-size="15" font-family="monospace" fill="#0b1b30">lesion 0.94</text>
+              <rect x="404" y="168" width="156" height="150" fill="none" stroke="#fbbf24" stroke-width="3"/>
+              <rect x="404" y="147" width="120" height="21" fill="#fbbf24"/><text x="413" y="164" font-size="15" font-family="monospace" fill="#0b1b30">lesion 0.88</text>
+            </g>
+            <!-- scanning sweep line -->
+            <rect class="scan-sweep" x="0" y="0" width="700" height="5" fill="#22d3ee"/>
+          </svg>
+        </div>
+        <div class="scan-foot">
+          <span class="chip-live">● live overlay</span>
+          <span class="scan-tags">열기 ↗</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── TASK EXPLORER ────────────────────────────────────── -->
+<section class="section" id="tasks">
+  <div class="sec-head"><h2>작업으로 탐색</h2><p>무엇을 하는 모델인지 선택하세요. 다시 누르면 해제됩니다.</p></div>
+  <div class="task-grid">
+    <button class="task-card" data-task="segmentation"><span class="tc-ico">🧩</span><h3>세그멘테이션</h3><p>장기·병변 픽셀 분할</p></button>
+    <button class="task-card" data-task="detection"><span class="tc-ico">🎯</span><h3>검출</h3><p>병변 위치 박스 표시</p></button>
+    <button class="task-card" data-task="classification"><span class="tc-ico">🏷</span><h3>분류</h3><p>질환·등급 판정</p></button>
+    <button class="task-card" data-task="foundation"><span class="tc-ico">🧠</span><h3>파운데이션</h3><p>사전학습 범용 백본</p></button>
+    <button class="task-card" data-task="multimodal"><span class="tc-ico">💬</span><h3>멀티모달</h3><p>영상+텍스트·판독</p></button>
+    <button class="task-card" data-task="restoration"><span class="tc-ico">✨</span><h3>복원·정밀화</h3><p>노이즈제거·재구성</p></button>
+  </div>
+</section>
+
+<!-- ── MODELS + MODALITY FILTER ─────────────────────────── -->
+<section class="section" id="models-section">
+  <div class="sec-head" id="modalities">
+    <h2>모델 <span class="count-pill"><span id="resultCount">0</span>개</span></h2>
+    <p>모달리티(영상 종류)로 한 번 더 좁혀보세요.</p>
+  </div>
+  <div class="mod-bar">
+    <button class="mod-chip active" data-mod="all">전체</button>
+    <button class="mod-chip" data-mod="xray">X-ray</button>
+    <button class="mod-chip" data-mod="ct">CT</button>
+    <button class="mod-chip" data-mod="mri">MRI</button>
+    <button class="mod-chip" data-mod="ultrasound">초음파</button>
+    <button class="mod-chip" data-mod="pathology">병리</button>
+    <button class="mod-chip" data-mod="retina">안저</button>
+    <button class="mod-chip" data-mod="derm">피부</button>
+    <button class="mod-chip" data-mod="endoscopy">내시경</button>
+  </div>
+  <div class="models-grid" id="modelsGrid"></div>
+  <div id="emptyState" class="empty-state" style="display:none">조건에 맞는 모델이 없어요. 필터를 바꿔보세요.</div>
+</section>
+
+<!-- ── INFO STRIP ───────────────────────────────────────── -->
+<section class="section info-strip">
+  <div class="sec-head"><h2>작업이 헷갈린다면</h2><p>의료 영상 AI는 이렇게 나뉩니다.</p></div>
+  <div class="info-cards">
+    <div class="info-c"><span class="ic">🧩</span><b>세그멘테이션</b><p>장기·종양의 <b>경계를 픽셀 단위로</b> 그립니다. (예: CT 간 분할) 의료영상에서 가장 핵심.</p></div>
+    <div class="info-c"><span class="ic">🎯</span><b>검출</b><p>병변의 <b>위치를 네모 박스로</b> 표시. YOLO 같은 모델이 여기 속합니다.</p></div>
+    <div class="info-c"><span class="ic">🏷</span><b>분류</b><p>영상 한 장을 <b>정상/질환·등급으로</b> 판정. (예: 망막병증 0–4단계)</p></div>
+    <div class="info-c"><span class="ic">🧠</span><b>파운데이션</b><p>대규모 영상으로 미리 학습한 <b>범용 백본</b>. 적은 데이터로 파인튜닝.</p></div>
+    <div class="info-c"><span class="ic">💬</span><b>멀티모달</b><p>영상을 보고 <b>판독문을 쓰거나 질문에 답</b>합니다.</p></div>
+    <div class="info-c"><span class="ic">✨</span><b>복원·정밀화</b><p>저선량/저해상 영상의 <b>노이즈를 줄이고 화질을 복원</b>.</p></div>
+  </div>
+</section>
+
+<!-- ── FOOTER ───────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="foot-inner">
+    <div class="foot-brand"><span class="brand-name">Visioneer</span><span class="foot-tag">Medical Imaging AI Model Hub · part of Basil Nexus</span></div>
+    <div class="foot-links">
+      <a href="../index.html">Basil Nexus</a>
+      <a href="../lifoneer/index.html">Lifoneer</a>
+      <a href="#models-section">Models</a>
+    </div>
+  </div>
+  <div class="foot-copy">© 2026 Visioneer · 공개 모델 정보는 각 제공처(Hugging Face·GitHub)의 라이선스를 따릅니다.</div>
+  <div class="img-credits-wrap">
+    <h4>카드 배경 의료영상 출처 (Wikimedia Commons · CC/Public Domain)</h4>
+    <div class="img-credits" id="imgCredits"></div>
+  </div>
+</footer>
+
+<script src="js/models.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

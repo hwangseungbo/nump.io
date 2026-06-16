@@ -1,0 +1,12 @@
+# NUMP / Basil Nexus — Caddy reverse proxy + 자동 HTTPS (Let's Encrypt)
+# 설치 위치: /etc/caddy/Caddyfile  (caddy 패키지의 systemd 서비스가 이 파일을 읽음)
+
+{
+	# Let's Encrypt 만료/문제 알림 받을 이메일 (변경 가능)
+	email nump0325@gmail.com
+}
+
+nump.io, www.nump.io {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8088
+}

@@ -130,6 +130,7 @@
       <kbd>/</kbd>
     </div>
     <nav class="nav-links">
+      <a class="nav-btn nav-home" href="../index.html">← Basil Nexus</a>
       <a class="nav-btn" href="index.html">Models</a>
       <a class="nav-btn nav-market" href="open-market.html">Open Market</a>
       <a class="nav-btn" href="#">Community</a>
@@ -291,7 +292,7 @@
       if(pos===real){ setTimeout(()=>{ pos=0; render(false); }, 540); } // after sliding into clone, snap back instantly
     }
     function prev(){ pos=(pos-1+real)%real; render(true); }
-    function start(){ clearInterval(timer); timer=setInterval(next,5000); }
+    function start(){ clearInterval(timer); timer=setInterval(next,2000); }
     function reset(){ start(); }
     document.getElementById('bannerNext').addEventListener('click',()=>{ next(); reset(); });
     document.getElementById('bannerPrev').addEventListener('click',()=>{ prev(); reset(); });
