@@ -19,10 +19,50 @@ const MIME = {
   '.woff':'font/woff', '.woff2':'font/woff2', '.ttf':'font/ttf', '.map':'application/json'
 };
 
+// ── Basil Nexus AI 프록시 ───────────────────────────────────
+//   브라우저(HTTPS) → /api/medgemma-chat → (서버 내부) → http://121.158.168.10:5078/api/chat
+//   HTTPS 페이지에서 HTTP 챗 서비스를 직접 못 부르는 혼합콘텐츠/CORS 문제를 서버 중계로 우회.
+const AI_UPSTREAM = { host: '121.158.168.10', port: 5078, path: '/api/chat' };
+function handleAiProxy(req, res) {
+  const chunks = [];
+  let size = 0;
+  req.on('data', (c) => { size += c.length; if (size > 2 * 1024 * 1024) { req.destroy(); } else chunks.push(c); });
+  req.on('end', () => {
+    const payload = Buffer.concat(chunks);
+    const up = http.request({
+      host: AI_UPSTREAM.host, port: AI_UPSTREAM.port, path: AI_UPSTREAM.path, method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+    }, (upRes) => {
+      res.writeHead(upRes.statusCode || 502, {
+        'Content-Type': upRes.headers['content-type'] || 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      upRes.pipe(res);
+    });
+    up.on('error', (e) => {
+      if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+      res.end('data: ' + JSON.stringify({ error: 'AI 서버 연결 실패: ' + e.message }) + '\n\n');
+    });
+    up.setTimeout(180000, () => up.destroy(new Error('시간 초과')));
+    // 클라이언트가 도중에 떠나면(페이지 이동·탭 닫기) 업스트림 연결을 끊어
+    // 모델이 헛되이 답변을 계속 생성하지 않도록 한다.
+    res.on('close', () => { if (!res.writableFinished) up.destroy(); });
+    up.write(payload); up.end();
+  });
+}
+
 const server = http.createServer((req, res) => {
   let pathname;
   try { pathname = decodeURIComponent(url.parse(req.url).pathname); }
   catch { res.writeHead(400); return res.end('Bad Request'); }
+
+  // AI 프록시 라우트 (정적 파일보다 먼저 처리)
+  if (pathname === '/api/medgemma-chat') {
+    if (req.method !== 'POST') { res.writeHead(405); return res.end('Method Not Allowed'); }
+    return handleAiProxy(req, res);
+  }
 
   if (pathname.endsWith('/')) pathname += 'index.html';
   // resolve safely inside ROOT (block path traversal)

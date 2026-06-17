@@ -170,6 +170,35 @@ body[data-role="nurse"] .role-badge{ box-shadow:0 5px 14px rgba(106,91,212,.28);
   background:var(--page); border:1px solid var(--line); border-radius:999px; padding:7px 13px; }
 .chip:hover{ border-color:var(--accent-line); background:var(--accent-soft); color:var(--accent-dd); }
 
+/* Basil Nexus AI 대화 영역 (패널 내부, ChatGPT 스타일) */
+.ai-chat{ display:flex; flex-direction:column; gap:12px;
+  margin:14px 0 0; padding:14px 6px 2px 0; border-top:1px solid var(--line);
+  max-height:50vh; overflow-y:auto; overscroll-behavior:contain; scroll-behavior:smooth; }
+.ai-chat:empty{ display:none; }
+.ai-chat::-webkit-scrollbar{ width:8px; }
+.ai-chat::-webkit-scrollbar-thumb{ background:var(--line-2,#e3e8e3); border-radius:8px; }
+.ai-chat::-webkit-scrollbar-thumb:hover{ background:var(--muted-2); }
+/* 대화 중에는 입력창을 아래에 고정(패널이 위로 자람) */
+.ai-box.chatting .ai-field{ margin-top:14px; }
+.ai-msg{ display:flex; }
+.ai-msg.user{ justify-content:flex-end; }
+.ai-bubble{ max-width:82%; padding:12px 15px; border-radius:15px; font-size:13.5px; line-height:1.55; word-break:break-word; }
+.ai-msg.user .ai-bubble{ background:var(--accent); color:#fff; border-bottom-right-radius:5px; }
+.ai-msg.ai .ai-bubble{ background:var(--card); border:1px solid var(--line); color:var(--ink-2); border-bottom-left-radius:5px; box-shadow:var(--shadow-sm); }
+.ai-bubble p{ margin:0 0 8px; } .ai-bubble p:last-child{ margin:0; }
+.ai-bubble ul,.ai-bubble ol{ margin:6px 0; padding-left:20px; }
+.ai-bubble li{ margin:3px 0; }
+.ai-bubble h1,.ai-bubble h2,.ai-bubble h3{ font-size:14.5px; margin:8px 0 4px; }
+.ai-bubble code{ background:rgba(0,0,0,.06); padding:1px 5px; border-radius:5px; font-size:12px; font-family:monospace; }
+.ai-bubble pre{ background:#0f1a14; color:#dbe7df; padding:11px 13px; border-radius:10px; overflow-x:auto; font-size:12px; }
+.ai-bubble pre code{ background:none; padding:0; color:inherit; }
+.ai-err{ color:#e5484d; font-style:normal; }
+.ai-dots{ display:inline-flex; gap:5px; padding:2px 0; }
+.ai-dots i{ width:6px; height:6px; border-radius:50%; background:var(--muted-2); animation:aiDot 1s infinite; }
+.ai-dots i:nth-child(2){ animation-delay:.15s; }
+.ai-dots i:nth-child(3){ animation-delay:.3s; }
+@keyframes aiDot{ 0%,60%,100%{ opacity:.3; transform:translateY(0); } 30%{ opacity:1; transform:translateY(-3px); } }
+
 /* 섹션 타이틀 */
 .sec-t{ display:flex; align-items:center; justify-content:space-between; margin:0 0 12px; }
 .sec-t h2{ font-size:16px; font-weight:800; color:var(--ink); }
@@ -301,7 +330,9 @@ body[data-role="nurse"] .btn-cta{ box-shadow:0 6px 16px rgba(106,91,212,.26); }
 .tip .tip-more{ display:inline-flex; align-items:center; gap:5px; margin-top:12px; font-size:12px; font-weight:700; color:var(--accent-d); }
 
 /* ---------- 페이지 푸터 ---------- */
-.page-foot{ grid-column:1/-1; }
+/* 사이드바(컬럼1)는 sticky·full-height라 푸터가 그 밑에 깔리면 가려짐.
+   → 푸터는 본문 컬럼(2)부터 시작해 사이드바 영역을 비운다. */
+.page-foot{ grid-column:2/-1; }
 .foot-bar{ background:var(--card); border-top:1px solid var(--line);
   padding:14px 26px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   font-size:12px; color:var(--muted); }
@@ -360,7 +391,7 @@ body[data-role="nurse"] .btn-cta{ box-shadow:0 6px 16px rgba(106,91,212,.26); }
 .row-lc{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px; border-bottom:1px solid var(--line-2); font-size:13px; }
 .row-lc:last-child{ border-bottom:none; }
 .row-lc .lab{ color:var(--ink-2); font-weight:600; }
-.row-lc .c{ font-weight:800; color:var(--accent-dd); }
+.row-lc .c{ font-weight:800; color:var(--ink); }
 .row-lc .c.warn{ color:#e5484d; }
 
 /* 최근 기록 (라벨-병실) */
@@ -414,6 +445,73 @@ body[data-role="nurse"] .btn-cta{ box-shadow:0 6px 16px rgba(106,91,212,.26); }
 .sys-i .sn{ font-size:12.5px; font-weight:700; color:var(--ink); }
 .sys-i .sv{ font-size:11px; color:var(--accent-d); font-weight:700; }
 
+/* ============================================================
+   의사 대시보드 전용 컴포넌트
+   ============================================================ */
+/* 핵심 기능: 이미지 아이콘을 라인 아이콘과 동일한 박스에 넣어 크기 통일 */
+.q-ico .q-img{ width:26px; height:26px; object-fit:contain; display:block; }
+.quick.cols4{ grid-template-columns:repeat(4,1fr); }
+
+/* 일정 행 상태 배지 */
+.st{ font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; flex:none; }
+.st.now{ background:var(--accent-soft); color:var(--accent-dd); }
+.st.wait{ background:#eef1ee; color:var(--muted); }
+.sch-row{ display:flex; align-items:center; gap:10px; padding:11px 2px; border-bottom:1px solid var(--line-2); }
+.sch-row:last-child{ border-bottom:none; }
+.sch-row .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); flex:none; }
+.sch-row .h{ font-size:12.5px; color:var(--accent-d); font-weight:700; min-width:44px; flex:none; }
+.sch-row .nm{ font-size:13px; font-weight:700; color:var(--ink); min-width:98px; flex:none; }
+.sch-row .dx{ font-size:12px; color:var(--muted); flex:1; min-width:0; }
+
+/* 진료 통계 */
+.stat-mini-row{ display:flex; gap:12px; margin-bottom:14px; }
+.stat-mini{ display:flex; align-items:center; gap:10px; background:var(--page); border:1px solid var(--line); border-radius:11px; padding:10px 16px; }
+.stat-mini .smi{ width:30px; height:30px; border-radius:8px; background:var(--accent-soft); display:grid; place-items:center; flex:none; }
+.stat-mini .smi svg{ width:17px; height:17px; stroke:var(--accent-d); fill:none; stroke-width:1.8; }
+.stat-mini .smn{ font-size:15px; font-weight:800; color:var(--ink); }
+.stat-mini .sml{ font-size:11px; color:var(--muted); }
+.stat4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.s4{ background:var(--page); border:1px solid var(--line); border-radius:12px; padding:14px; }
+.s4l{ font-size:11.5px; color:var(--muted); }
+.s4n{ font-size:19px; font-weight:800; color:var(--ink); margin-top:4px; }
+.delta{ font-size:11px; font-weight:700; margin-top:3px; display:inline-block; }
+.delta.up{ color:#2f9e57; }
+.delta.down{ color:#e5484d; }
+
+/* 최근 조회 환자 */
+.pt-head{ display:flex; align-items:center; gap:11px; padding-bottom:11px; border-bottom:1px solid var(--line-2); margin-bottom:6px; }
+.pt-head .pa{ width:42px; height:42px; border-radius:50%; object-fit:cover; object-position:top center; background:var(--accent-soft); flex:none; }
+.pt-head .pn{ font-size:14px; font-weight:800; color:var(--ink); }
+.pt-head .pid{ font-size:11px; color:var(--muted); margin-top:1px; }
+
+/* SageFM 요약 */
+.ai-summary{ font-size:12.5px; color:var(--ink-2); margin:2px 0 10px; line-height:1.5; }
+.bullets{ list-style:none; display:flex; flex-direction:column; gap:8px; }
+.bullets li{ position:relative; padding-left:15px; font-size:12.5px; color:var(--ink-2); line-height:1.45; }
+.bullets li::before{ content:""; position:absolute; left:1px; top:6px; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+.summary-foot{ text-align:right; margin-top:12px; }
+
+/* 수가 청구 자동 작성 */
+.claim-t{ font-size:12.5px; font-weight:800; color:var(--ink); margin-bottom:8px; }
+.claim-row{ display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line-2); font-size:12px; }
+.claim-row .cl-n{ flex:1; color:var(--ink-2); }
+.claim-row .cl-code{ color:var(--muted); font-family:monospace; font-size:10.5px; }
+.claim-row .cl-p{ font-weight:700; color:var(--ink); min-width:60px; text-align:right; }
+.claim-total{ display:flex; justify-content:space-between; align-items:center; padding:11px 0 2px; }
+.claim-total .ct-n{ font-size:12.5px; font-weight:800; color:var(--ink); }
+.claim-total .ct-v{ font-size:16px; font-weight:800; color:var(--accent-dd); }
+.claim-btns{ display:flex; gap:8px; margin-top:11px; }
+.claim-btns a{ flex:1; text-align:center; padding:9px; border-radius:10px; font-size:12.5px; font-weight:700; }
+.claim-btns .b1{ border:1px solid var(--accent-line); color:var(--accent-d); background:var(--card); }
+.claim-btns .b2{ background:var(--accent); color:#fff; }
+
+/* 영상 분석 */
+.img-panel{ display:flex; gap:13px; align-items:flex-start; }
+.img-panel .ip-img{ width:118px; height:96px; border-radius:11px; object-fit:cover; background:#0d1411; flex:none; }
+.ip-b{ flex:1; min-width:0; }
+.ip-dx{ font-size:14px; font-weight:800; color:var(--ink); }
+.ip-m{ font-size:12px; color:var(--ink-2); margin-top:4px; }
+
 /* ---------- 반응형 ---------- */
 @media (max-width:1180px){
   .shell{ grid-template-columns:var(--side-w) 1fr; }
@@ -424,4 +522,5 @@ body[data-role="nurse"] .btn-cta{ box-shadow:0 6px 16px rgba(106,91,212,.26); }
   .sidebar{ position:static; height:auto; }
   .quick,.docs{ grid-template-columns:repeat(2,1fr); }
   .cards-2{ grid-template-columns:1fr; }
+  .page-foot{ grid-column:1/-1; }
 }

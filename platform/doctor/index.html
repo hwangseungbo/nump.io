@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basil Nexus · 의사 화면</title>
+<meta name="description" content="홍길동 원장님의 진료 일정·환자 요약·수가 청구·영상 분석을 한 곳에서." />
+<link rel="icon" href="../../assets/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
+<meta name="theme-color" content="#2f9e57" />
+<link rel="stylesheet" href="../css/shell.css?v=5" />
+</head>
+<body data-role="doctor">
+
+<div class="shell">
+
+  <!-- ════════ 사이드바 ════════ -->
+  <aside class="sidebar">
+    <a class="sb-brand" href="../../index.html">
+      <img src="../../assets/logo-mark.png" alt="Basil Nexus" />
+      <span><span class="bt">Basil Nexus</span><br/><span class="bs">AI 통합 의료 플랫폼</span></span>
+    </a>
+    <span class="role-badge">의사 화면</span>
+
+    <div class="sb-profile">
+      <img class="ava" src="../../assets/av-doctor.png" alt="홍길동 원장님" />
+      <div>
+        <div class="pn">홍길동 원장님</div>
+        <div class="pm">가정의학과</div>
+        <div class="on">온라인</div>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <a class="nav-i on" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>환자 검색</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg>진료 일정</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>진료 기록</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 014 4c2 1 3 3 3 5a5 5 0 01-2 4 4 4 0 01-8 0M12 3a4 4 0 00-4 4c-2 1-3 3-3 5a5 5 0 002 4"/><path d="M12 3v18"/></svg>AI 환자 요약 (SageFM)</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>AI 자동 문서화</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/><circle cx="17" cy="16" r="3"/></svg>수가 청구 도우미</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 9l2 2 4-4M8 19l1.5-4M16 19l-1.5-4"/></svg>영상 분석</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg>약물 / 상호작용</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg>서류 / 문서 관리</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>통계 / 리포트</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2 2 2 0 11-4 0 1.7 1.7 0 00-2.9-1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00-1.2-2.9 2 2 0 010-4 1.7 1.7 0 001.2-2.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 002.9-1.2 2 2 0 014 0 1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 001.2 2.9 2 2 0 010 4 1.7 1.7 0 00-1.2 1z"/></svg>설정</a>
+    </nav>
+
+    <div class="sb-card secure-card">
+      <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+      <div>
+        <div class="sc-t">On-Premise</div>
+        <div class="sc-s" style="margin:2px 0 0">보안 연결 상태 · <b style="color:var(--accent-d)">정상</b></div>
+      </div>
+    </div>
+
+    <div class="sb-foot">
+      <div class="stitle">오늘 외래 현황</div>
+      <div class="sb-stats">
+        <div class="sb-stat"><div class="sn">28명</div><div class="sl">예약 환자</div></div>
+        <div class="sb-stat"><div class="sn">12명</div><div class="sl">진료 대기</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════ 메인 ════════ -->
+  <main class="main">
+    <div class="hello"><em>홍길동 원장님</em>, 오늘도 환자 중심의 스마트한 진료를 시작하세요!</div>
+    <div class="hello-sub">진료·수가·문서·영상까지, AI가 함께 봅니다.</div>
+
+    <!-- AI 입력 -->
+    <div class="ai-box">
+      <div class="ai-head">
+        <span class="leaf"><svg viewBox="0 0 24 24"><path d="M5 19c0-7 5-12 14-13-1 9-6 14-13 14a1 1 0 01-1-1z"/><path d="M6 18C9 13 12 10 17 8"/></svg></span>
+        <span class="at">Basil Nexus AI</span>
+        <span class="as">· 진료를 도와드릴게요</span>
+      </div>
+      <div class="ai-field">
+        <input type="text" placeholder="환자 정보, 진단, 치료, 수가 청구, 문서 작성 등 무엇이든 물어보세요…" />
+        <button class="send" aria-label="전송"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+      </div>
+      <div class="chips">
+        <span class="chip">오늘 예약 환자 요약</span>
+        <span class="chip">골다공증 수가 서류 작성</span>
+        <span class="chip">약물 상호작용 확인</span>
+        <span class="chip">진료비 요약</span>
+        <span class="chip">검사·평가 대비 청구</span>
+      </div>
+    </div>
+
+    <!-- 핵심 기능 바로가기 (8) -->
+    <div class="block">
+      <div class="sec-t"><h2>핵심 기능 바로가기</h2></div>
+      <div class="quick cols4">
+        <a class="q-card" href="#"><span class="q-ico"><img class="q-img" src="../../assets/svc/sagefm.png" alt="" /></span><h3>SageFM</h3><p>의료 파운데이션 모델</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><img class="q-img" src="../../assets/svc/mintnote.png" alt="" /></span><h3>MintNote</h3><p>음성 EMR</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><img class="q-img" src="../../assets/svc/thymecare.png" alt="" /></span><h3>ThymeCare</h3><p>수가 삭감 · 삭감 방지</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><img class="q-img" src="../../assets/svc/rosemary.png" alt="" /></span><h3>Rosemary Insight</h3><p>의학 인사이트</p></a>
+        <a class="q-card" href="../../visioneer/index.html"><span class="q-ico"><img class="q-img" src="../../assets/svc/ctmri.png" alt="" /></span><h3>CT / MRI 분석</h3><p>AI 영상 분석</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><h3>AI 자동 문서화</h3><p>진료기록 자동 작성</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><img class="q-img" src="../../assets/svc/accounting.png" alt="" /></span><h3>수가 청구 도우미</h3><p>청구서 자동 작성</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><img class="q-img" src="../../assets/svc/lavenderrx.png" alt="" /></span><h3>약물 / 상호작용</h3><p>의약품 안전 관리</p></a>
+      </div>
+    </div>
+
+    <!-- 일정 + 서류 요청 -->
+    <div class="block cards-2">
+      <div class="card">
+        <div class="sec-t"><h2>나의 일정</h2><a class="link" href="#">전체 일정 <span class="arr">›</span></a></div>
+        <div class="tl-t" style="margin-bottom:8px">2025년 5월 28일 (수)</div>
+        <div class="sch-row"><span class="dot"></span><span class="h">09:00</span><span class="nm">김철수 (M/45)</span><span class="dx">고혈압·골다공증</span><span class="st now">진료 중</span></div>
+        <div class="sch-row"><span class="dot"></span><span class="h">09:30</span><span class="nm">박영희 (F/62)</span><span class="dx">당뇨·고지혈증</span><span class="st wait">대기</span></div>
+        <div class="sch-row"><span class="dot"></span><span class="h">10:00</span><span class="nm">이민수 (M/30)</span><span class="dx">감기·기흉</span><span class="st wait">대기</span></div>
+        <div class="sch-row"><span class="dot"></span><span class="h">10:30</span><span class="nm">최지연 (F/55)</span><span class="dx">골다공증·골절 후 관리</span><span class="st wait">대기</span></div>
+        <div class="sch-row"><span class="dot"></span><span class="h">11:00</span><span class="nm">정승환 (M/47)</span><span class="dx">고지혈증·약 처방</span><span class="st wait">대기</span></div>
+        <div class="docs-foot"><a class="link" href="#">전체 일정 보기 <span class="arr">›</span></a></div>
+      </div>
+
+      <div class="card">
+        <div class="sec-t"><h2>나의 서류 요청 현황</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="row-lc"><span class="lab">진단서 요청</span><span class="c">3건</span></div>
+        <div class="row-lc"><span class="lab">소견서 요청</span><span class="c">2건</span></div>
+        <div class="row-lc"><span class="lab">의무기록 사본 요청</span><span class="c">1건</span></div>
+        <div class="row-lc"><span class="lab">보험서류 요청</span><span class="c">4건</span></div>
+      </div>
+    </div>
+
+    <!-- 진료 통계 -->
+    <div class="block card">
+      <div class="sec-t"><h2>진료 통계 <span class="muted" style="font-weight:600">(이번 달)</span></h2></div>
+      <div class="stat-mini-row">
+        <div class="stat-mini"><span class="smi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span><span class="smn">5명</span> <span class="sml">대기 환자</span></span></div>
+        <div class="stat-mini"><span class="smi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 8l8 8M16 8l-8 8"/></svg></span><span><span class="smn">1명</span> <span class="sml">No-Show</span></span></div>
+      </div>
+      <div class="stat4">
+        <div class="s4"><div class="s4l">총 진료 수</div><div class="s4n">256건</div><span class="delta up">▲ 18%</span></div>
+        <div class="s4"><div class="s4l">수가 청구액</div><div class="s4n">28,450,000원</div><span class="delta up">▲ 12%</span></div>
+        <div class="s4"><div class="s4l">삭감 금액</div><div class="s4n">1,250,000원</div><span class="delta down">▼ 32%</span></div>
+        <div class="s4"><div class="s4l">환자 만족도</div><div class="s4n">4.8 / 5.0</div><span class="delta up">▲ 0.3</span></div>
+      </div>
+    </div>
+
+    <!-- 시스템 상태 -->
+    <div class="block card">
+      <div class="sec-t"><h2>시스템 상태</h2></div>
+      <div class="sysbar">
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg></span><span><span class="sn">On-Premise 연결</span><br/><span class="sv">정상</span></span></span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 014 4c2 1 3 3 3 5a5 5 0 01-2 4 4 4 0 01-8 0 5 5 0 01-2-4c0-2 1-4 3-5a4 4 0 014-4z"/></svg></span><span><span class="sn">모델 SageFM</span><br/><span class="sv">정상</span></span></span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg></span><span><span class="sn">데이터 백업</span><br/><span class="sv">정상</span></span></span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span><span class="sn">보안 상태</span><br/><span class="sv">안전</span></span></span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ════════ 우측 레일 ════════ -->
+  <aside class="rail">
+    <div class="rail-top">
+      <button class="icon-btn" aria-label="알림"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></button>
+      <button class="btn-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 새 환자 등록</button>
+    </div>
+
+    <div class="rail-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" placeholder="환자 이름 또는 ID 입력 (예: 김철수)" />
+    </div>
+
+    <!-- 최근 조회 환자 -->
+    <div class="card">
+      <div class="sec-t"><h2>최근 조회 환자</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="pt-head">
+        <img class="pa" src="../../assets/av-patient.png" alt="" />
+        <div><div class="pn">김철수 (M/45)</div><div class="pid">ID 20250528-001</div></div>
+        <button class="btn-ghost" style="margin-left:auto">상세 보기</button>
+      </div>
+      <div class="kv"><span class="k">진단</span><span class="v">고혈압, 골다공증</span></div>
+      <div class="kv"><span class="k">처방</span><span class="v">Amlodipine 5mg 외 1종</span></div>
+      <div class="kv"><span class="k">최근 내원</span><span class="v">2025.05.28</span></div>
+      <div class="kv"><span class="k">메모</span><span class="v">DEXA 검사 결과 상담 예정</span></div>
+    </div>
+
+    <!-- SageFM 환자 요약 -->
+    <div class="card">
+      <div class="sec-t"><h2>SageFM 환자 요약</h2><a class="link" href="#">더 보기 <span class="arr">›</span></a></div>
+      <div class="ai-summary">김철수 환자의 최근 3개월 진료 데이터를 분석한 요약입니다.</div>
+      <ul class="bullets">
+        <li>혈압 조절 상태 개선 (130/85 → 125/80 mmHg)</li>
+        <li>골밀도 T-score -2.6, 골다공증 진단 유지</li>
+        <li>약물 순응도 양호, 이상반응 없음</li>
+        <li>다음 방문: 골다공증 치료 평가 및 DEXA 재검 권장</li>
+      </ul>
+      <div class="summary-foot"><a class="link" href="#">전체 요약 보기 <span class="arr">›</span></a></div>
+    </div>
+
+    <!-- 수가 청구 자동 작성 -->
+    <div class="card">
+      <div class="sec-t"><h2>수가 청구 자동 작성</h2><a class="link" href="#">더 보기 <span class="arr">›</span></a></div>
+      <div class="claim-t">골다공증 평가 청구서 <span class="muted" style="font-weight:600">(초안)</span></div>
+      <div class="claim-row"><span class="cl-n">DEXA 검사 (요추+대퇴)</span><span class="cl-code">E7001</span><span class="cl-p">₩85,950</span></div>
+      <div class="claim-row"><span class="cl-n">골다공증 치료 상담료</span><span class="cl-code">A2101</span><span class="cl-p">₩18,150</span></div>
+      <div class="claim-row"><span class="cl-n">약물 처방료</span><span class="cl-code">A0201</span><span class="cl-p">₩9,290</span></div>
+      <div class="claim-total"><span class="ct-n">예상 총액</span><span class="ct-v">₩113,390</span></div>
+      <div class="claim-btns"><a class="b1" href="#">상세보기</a><a class="b2" href="#">EMR 저장</a></div>
+    </div>
+
+    <!-- 영상 분석 -->
+    <div class="card">
+      <div class="sec-t"><h2>영상 분석 결과</h2><a class="link" href="../../visioneer/index.html">Visioneer ↗</a></div>
+      <div class="img-panel">
+        <img class="ip-img" src="../../visioneer/assets/img/xray.jpg" alt="척추 X-ray" />
+        <div class="ip-b">
+          <div class="ip-dx">골밀도 감소</div>
+          <div class="ip-m">T-score -2.6</div>
+          <div class="ip-m">AI 분석: 골다공증 의심</div>
+          <div style="margin-top:10px"><a class="btn-ghost" href="#">영상 리포트 보기</a></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════ 푸터 ════════ -->
+  <footer class="page-foot">
+    <div class="foot-bar">
+      <span class="secure"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>On-Premise 보안 연결</span>
+      <span class="sep">·</span>
+      <span>Basil Nexus는 진료 데이터를 안전하게 보호합니다.</span>
+      <span class="copy">© 2025 NUMP. All rights reserved. · On-Premise · Secure · Private</span>
+    </div>
+  </footer>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="../js/ai.js?v=5"></script>
+</body>
+</html>
