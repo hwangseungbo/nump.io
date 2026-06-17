@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basil Nexus · 간호사 화면</title>
+<meta name="description" content="김나연 간호사님의 담당 환자·투약·검사·간호 기록·병동 현황을 한 곳에서." />
+<link rel="icon" href="../../assets/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
+<meta name="theme-color" content="#6a5bd4" />
+<link rel="stylesheet" href="../css/shell.css" />
+</head>
+<body data-role="nurse">
+
+<div class="shell">
+
+  <!-- ════════ 사이드바 ════════ -->
+  <aside class="sidebar">
+    <a class="sb-brand" href="../../index.html">
+      <img src="../../assets/logo-mark.png" alt="Basil Nexus" />
+      <span><span class="bt">Basil Nexus</span><br/><span class="bs">AI 통합 의료 플랫폼</span></span>
+    </a>
+    <span class="role-badge">간호사 화면</span>
+
+    <div class="sb-profile">
+      <img class="ava" src="../../assets/av-nurse.png" alt="김나연 간호사" />
+      <div>
+        <div class="pn">김나연 간호사</div>
+        <div class="pm">내과 병동</div>
+        <div class="on">온라인</div>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <a class="nav-i on" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>환자 검색</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/><path d="M12 7v4M10 9h4"/></svg>입·퇴원 관리</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg>진료 일정</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg>투약 관리</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6M11 12h2"/></svg>검사 / 처치 관리</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>간호 기록</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>서류 요청 관리</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg>공지 / 메모</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>통계 / 리포트</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2 2 2 0 11-4 0 1.7 1.7 0 00-2.9-1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00-1.2-2.9 2 2 0 010-4 1.7 1.7 0 001.2-2.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 002.9-1.2 2 2 0 014 0 1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 001.2 2.9 2 2 0 010 4 1.7 1.7 0 00-1.2 1z"/></svg>설정</a>
+    </nav>
+
+    <div class="sb-card secure-card">
+      <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+      <div>
+        <div class="sc-t">On-Premise</div>
+        <div class="sc-s" style="margin:2px 0 0">보안 연결 상태 · <b style="color:var(--accent-d)">정상</b></div>
+      </div>
+    </div>
+
+    <div class="sb-foot">
+      <div class="stitle">오늘 병동 통계</div>
+      <div class="sb-stats">
+        <div class="sb-stat"><div class="sn">48건</div><div class="sl">활력징후 측정</div></div>
+        <div class="sb-stat"><div class="sn">36건</div><div class="sl">투약 수행</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════ 메인 ════════ -->
+  <main class="main">
+    <div class="hello"><em>김나연 간호사님</em>, 오늘도 환자 안전과 최적의 간호를 응원합니다!</div>
+    <div class="hello-sub">담당 환자와 병동 현황을 한눈에 확인하세요.</div>
+
+    <!-- AI 입력 -->
+    <div class="ai-box">
+      <div class="ai-head">
+        <span class="leaf"><svg viewBox="0 0 24 24"><path d="M5 19c0-7 5-12 14-13-1 9-6 14-13 14a1 1 0 01-1-1z"/><path d="M6 18C9 13 12 10 17 8"/></svg></span>
+        <span class="at">Basil Nexus AI</span>
+        <span class="as">· 무엇을 도와드릴까요?</span>
+      </div>
+      <div class="ai-field">
+        <input type="text" placeholder='예) "김OO 환자 최근 활력징후 추이 요약해줘" 또는 "퇴원 교육 자료 만들어줘"' />
+        <button class="send" aria-label="전송"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+      </div>
+      <div class="chips">
+        <span class="chip">오늘 담당 환자 요약</span>
+        <span class="chip">투약 스케줄 확인</span>
+        <span class="chip">검사 결과 확인</span>
+        <span class="chip">퇴원 교육 안내문 작성</span>
+        <span class="chip">입원 수속 안내</span>
+        <span class="chip">간호 기록 요약</span>
+        <span class="chip">특이사항 알림 확인</span>
+      </div>
+    </div>
+
+    <!-- 간호 업무 바로가기 (10) -->
+    <div class="block">
+      <div class="sec-t"><h2>간호 업무 바로가기</h2></div>
+      <div class="quick">
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><h3>환자 상태 기록</h3><p>바이탈/통증 기록</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><h3>투약 관리</h3><p>투약 스케줄/이력</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6"/></svg></span><h3>검사 관리</h3><p>검사 예약/결과</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z"/><path d="M14 6l3 3"/></svg></span><h3>처치 관리</h3><p>처치/시술 기록</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg></span><h3>입·퇴원 관리</h3><p>입원/퇴원/전실</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6"/></svg></span><h3>간호 기록 작성</h3><p>간호 노트/경과</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.5-4 4 1 5.5L12 20l-5 .5 1-5.5-4-4 5.5-.5z"/></svg></span><h3>낙상 관리</h3><p>낙상 평가/예방</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9l3 3-3 3M13 15h3"/></svg></span><h3>간호 계획</h3><p>간호 계획/평가</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M7 9v5c0 1.5 5 3 5 3s5-1.5 5-3V9"/></svg></span><h3>교육 자료</h3><p>환자 교육 자료</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg></span><h3>공지 / 메모</h3><p>병동 공지/메모</p></a>
+      </div>
+    </div>
+
+    <!-- 오늘 담당 환자 -->
+    <div class="block card">
+      <div class="sec-t"><h2>오늘 담당 환자 <span class="muted" style="font-weight:600">(12명)</span></h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="p-item">
+        <span class="p-ava" style="background:#6a5bd4">김</span>
+        <div class="p-b"><div class="p-n">김철수 (M/45)</div><div class="p-m">1205호 · 고혈압, 골다공증</div></div>
+        <div class="p-r"><span class="tag t-test">검사 예정</span><div class="p-time">09:30</div></div>
+      </div>
+      <div class="p-item">
+        <span class="p-ava" style="background:#3f9e6b">박</span>
+        <div class="p-b"><div class="p-n">박영희 (F/62)</div><div class="p-m">1206호 · 당뇨, 고지혈증</div></div>
+        <div class="p-r"><span class="tag t-med">투약 시간</span><div class="p-time">09:00</div></div>
+      </div>
+      <div class="p-item">
+        <span class="p-ava" style="background:#d99a2b">이</span>
+        <div class="p-b"><div class="p-n">이민수 (M/30)</div><div class="p-m">1207호 · 감기, 기흉</div></div>
+        <div class="p-r"><span class="tag t-care">처치 예정</span><div class="p-time">10:00</div></div>
+      </div>
+      <div class="p-item">
+        <span class="p-ava" style="background:#4f7ddb">최</span>
+        <div class="p-b"><div class="p-n">최지연 (F/55)</div><div class="p-m">1208호 · 골다공증, 골절 후 관리</div></div>
+        <div class="p-r"><span class="tag t-test">검사 예정</span><div class="p-time">10:30</div></div>
+      </div>
+      <div class="p-item">
+        <span class="p-ava" style="background:#c2557a">정</span>
+        <div class="p-b"><div class="p-n">정승환 (M/47)</div><div class="p-m">1209호 · 고지혈증, 약 처방</div></div>
+        <div class="p-r"><span class="tag t-med">투약 시간</span><div class="p-time">11:00</div></div>
+      </div>
+    </div>
+
+    <!-- 일정 + 서류 요청 -->
+    <div class="block cards-2">
+      <div class="card">
+        <div class="sec-t"><h2>오늘 일정</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="tl-t" style="margin-bottom:10px">2025.05.28 (수)</div>
+        <div class="tl-row"><span class="dot"></span><span class="h">09:00</span><span class="l">병동 라운딩</span><span class="rm" style="margin-left:auto;color:var(--muted);font-size:12px">홍길동 의사</span></div>
+        <div class="tl-row"><span class="dot"></span><span class="h">10:00</span><span class="l">정기 투약 관리</span></div>
+        <div class="tl-row"><span class="dot"></span><span class="h">11:00</span><span class="l">검사 예약 확인</span></div>
+        <div class="tl-row"><span class="dot"></span><span class="h">13:00</span><span class="l">간호 기록 작성</span></div>
+        <div class="tl-row"><span class="dot"></span><span class="h">14:00</span><span class="l">퇴원 교육</span><span class="rm" style="margin-left:auto;color:var(--muted);font-size:12px">김철수 환자</span></div>
+        <div class="tl-row"><span class="dot"></span><span class="h">15:00</span><span class="l">병동 회의</span><span class="rm" style="margin-left:auto;color:var(--muted);font-size:12px">수간호사</span></div>
+      </div>
+
+      <div class="card">
+        <div class="sec-t"><h2>서류 요청 현황</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="row-lc"><span class="lab">진단서 요청</span><span class="c">3건</span></div>
+        <div class="row-lc"><span class="lab">소견서 요청</span><span class="c">2건</span></div>
+        <div class="row-lc"><span class="lab">의무기록 사본 요청</span><span class="c">1건</span></div>
+        <div class="row-lc"><span class="lab">보험서류 요청</span><span class="c warn">4건</span></div>
+        <div class="row-lc"><span class="lab">기타 서류 요청</span><span class="c">1건</span></div>
+      </div>
+    </div>
+
+    <!-- 환자 안전 지표 -->
+    <div class="block card">
+      <div class="sec-t"><h2>환자 안전 지표</h2></div>
+      <div class="metric-grid">
+        <div class="metric"><span class="mi"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.5-4 4 1 5.5L12 20l-5 .5 1-5.5-4-4 5.5-.5z"/></svg></span><div><div class="mn">0건</div><div class="ml">낙상 발생 (0%)</div></div></div>
+        <div class="metric"><span class="mi"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span><div><div class="mn">0건</div><div class="ml">욕창 발생 (0%)</div></div></div>
+        <div class="metric"><span class="mi"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><div><div class="mn">0건</div><div class="ml">투약 오류 (0%)</div></div></div>
+        <div class="metric alert"><span class="mi"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><circle cx="16" cy="11" r="3"/><path d="M9 12v3M16 14v3"/></svg></span><div><div class="mn">1건</div><div class="ml">감염 발생 (0.4%)</div></div></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ════════ 우측 레일 ════════ -->
+  <aside class="rail">
+    <div class="rail-top">
+      <button class="icon-btn" aria-label="알림"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">7</span></button>
+      <button class="btn-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 새 환자 등록</button>
+    </div>
+
+    <div class="rail-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" placeholder="환자 이름 또는 ID 입력" />
+    </div>
+
+    <!-- 주요 알림 -->
+    <div class="card">
+      <div class="sec-t"><h2>주요 알림</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><span class="al-l">투약 알림</span><span class="al-c">3건</span></div>
+      <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/></svg></span><span class="al-l">검사 결과 확인</span><span class="al-c">4건</span></div>
+      <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z"/></svg></span><span class="al-l">처치 예정</span><span class="al-c">2건</span></div>
+      <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg></span><span class="al-l">입·퇴원 예정</span><span class="al-c">1건</span></div>
+      <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg></span><span class="al-l">서류 요청</span><span class="al-c">3건</span></div>
+    </div>
+
+    <!-- 메모 / 전달 -->
+    <div class="card">
+      <div class="sec-t"><h2>메모 / 전달 사항</h2><a class="link" href="#">+ 새 메모</a></div>
+      <div class="memo-row"><span class="memo-t">09:15</span><div class="memo-b"><div class="mt">김철수 환자 혈압 체크 후 보고</div><div class="mw">홍길동 의사</div></div></div>
+      <div class="memo-row"><span class="memo-t">08:50</span><div class="memo-b"><div class="mt">박영희 환자 퇴원 교육 자료 준비</div><div class="mw">홍길동 의사</div></div></div>
+      <div class="memo-row"><span class="memo-t">08:30</span><div class="memo-b"><div class="mt">병동 소독 점검 완료</div><div class="mw">관리자</div></div></div>
+      <div class="docs-foot" style="margin-top:8px"><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+    </div>
+
+    <!-- 병동 현황 -->
+    <div class="card">
+      <div class="sec-t"><h2>병동 현황</h2><a class="link" href="#">더 보기 <span class="arr">›</span></a></div>
+      <div class="ward-grid">
+        <div class="ward-c"><span class="wi"><svg viewBox="0 0 24 24"><path d="M4 21v-6a4 4 0 014-4h8a4 4 0 014 4v6"/><circle cx="12" cy="6" r="3"/></svg></span><div class="wn">24명</div><div class="wl">입원 환자</div></div>
+        <div class="ward-c"><span class="wi"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 14l2 2 3-3"/></svg></span><div class="wn">2명</div><div class="wl">퇴원 예정</div></div>
+        <div class="ward-c"><span class="wi"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/></svg></span><div class="wn">8건</div><div class="wl">검사 예정</div></div>
+        <div class="ward-c"><span class="wi"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z"/><path d="M14 6l3 3"/></svg></span><div class="wn">1건</div><div class="wl">오늘 수술</div></div>
+      </div>
+    </div>
+
+    <!-- 빠른 연락처 -->
+    <div class="card">
+      <div class="sec-t"><h2>빠른 연락처</h2><a class="link" href="#">편집</a></div>
+      <div class="contact-row"><span class="ca">홍</span><span class="cn">홍길동 의사 (담당)</span><span class="cnum">010-1234-5678</span><span class="cp"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.6A2 2 0 014.1 2h3a2 2 0 012 1.7c.3 2 .8 3 .8 3a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1-1.2a2 2 0 012.1-.5s1 .5 3 .8a2 2 0 011.7 2z"/></svg></span></div>
+      <div class="contact-row"><span class="ca">당</span><span class="cn">주치의 당직</span><span class="cnum">02-123-1111</span><span class="cp"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.6A2 2 0 014.1 2h3a2 2 0 012 1.7c.3 2 .8 3 .8 3a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1-1.2a2 2 0 012.1-.5s1 .5 3 .8a2 2 0 011.7 2z"/></svg></span></div>
+      <div class="contact-row"><span class="ca">수</span><span class="cn">수간호사</span><span class="cnum">010-9876-5432</span><span class="cp"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.6A2 2 0 014.1 2h3a2 2 0 012 1.7c.3 2 .8 3 .8 3a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1-1.2a2 2 0 012.1-.5s1 .5 3 .8a2 2 0 011.7 2z"/></svg></span></div>
+    </div>
+
+    <!-- 최근 기록 -->
+    <div class="card">
+      <div class="sec-t"><h2>최근 기록</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="rec2-row"><span class="dot"></span><span class="lb">환자 활력징후 기록</span><span class="rm">1205호</span></div>
+      <div class="rec2-row"><span class="dot"></span><span class="lb">환자 투약 후 기록</span><span class="rm">1206호</span></div>
+      <div class="rec2-row"><span class="dot"></span><span class="lb">환자 처치 기록</span><span class="rm">1207호</span></div>
+      <div class="rec2-row"><span class="dot"></span><span class="lb">환자 검사 결과 확인</span><span class="rm">1208호</span></div>
+      <div class="rec2-row"><span class="dot"></span><span class="lb">환자 간호 기록 작성</span><span class="rm">1209호</span></div>
+    </div>
+  </aside>
+
+  <!-- ════════ 푸터 (시스템 상태) ════════ -->
+  <footer class="page-foot">
+    <div class="foot-bar">
+      <div class="sysbar">
+        <span class="sys-t">시스템 상태</span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg></span><span><span class="sn">On-Premise</span><br/><span class="sv">연결 정상</span></span></span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg></span><span><span class="sn">서버 상태</span><br/><span class="sv">정상</span></span></span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg></span><span><span class="sn">데이터 백업</span><br/><span class="sv">정상</span></span></span>
+        <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span><span class="sn">보안 상태</span><br/><span class="sv">안전</span></span></span>
+      </div>
+      <span class="copy">© 2025 NUMP. All rights reserved. · On-Premise · Secure · Private</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -12,6 +12,7 @@ cp "$root/index.html" "$pub/index.html"
 cp -r "$root/assets"    "$pub/assets"
 cp -r "$root/lifoneer"  "$pub/lifoneer"
 cp -r "$root/visioneer" "$pub/visioneer"
+cp -r "$root/platform"  "$pub/platform"
 
 # 배포본에서 비공개/불필요 항목 제거 (sync-public.ps1 과 동일 규칙)
 rm -rf "$pub/lifoneer/_backup" "$pub/lifoneer/.omc" "$pub/lifoneer/v10"

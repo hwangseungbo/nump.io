@@ -371,15 +371,15 @@
     <div class="avatar-select" id="avatarSelect">
       <div class="as-title">아바타 선택</div>
       <div class="avatar-row">
-        <div class="av-opt active" data-avatar="assets/av-doctor.png">
+        <div class="av-opt active" data-avatar="assets/av-doctor.png" data-role="doctor">
           <div class="av-ring"><img src="assets/thumb/doctor.png" alt="" /></div>
           <div class="ko">의사</div><div class="en">Doctor</div>
         </div>
-        <div class="av-opt" data-avatar="assets/av-nurse.png">
+        <div class="av-opt" data-avatar="assets/av-nurse.png" data-role="nurse">
           <div class="av-ring"><img src="assets/thumb/nurse.png" alt="" /></div>
           <div class="ko">간호사</div><div class="en">Nurse</div>
         </div>
-        <div class="av-opt" data-avatar="assets/av-patient.png">
+        <div class="av-opt" data-avatar="assets/av-patient.png" data-role="patient">
           <div class="av-ring"><img src="assets/thumb/patient.png" alt="" /></div>
           <div class="ko">환자/가족</div><div class="en">Patient/Family</div>
         </div>
@@ -436,7 +436,7 @@
     <div class="promo">
       <div class="plogo"><span class="n"><img src="assets/logo-mark.png" alt="Basil Nexus" /></span><b>Basil Nexus</b></div>
       <p>모든 AI 에이전트가 연결된 통합 플랫폼</p>
-      <a class="btn" href="#">통합 대시보드 열기 <span>→</span></a>
+      <a class="btn" id="dashOpen" href="#">통합 대시보드 열기 <span>→</span></a>
     </div>
 
     <a class="info-card lifoneer-card" href="lifoneer/index.html">
@@ -557,6 +557,33 @@
     if(!charImg || !panel) return;
     var opts = panel.querySelectorAll('.av-opt');
 
+    // 현재 로그인(아바타) 역할 — 추후 실제 로그인과 연동 예정
+    var currentRole = 'doctor';
+
+    // 역할별 통합 대시보드 경로 (준비된 페이지만 등록)
+    var ROLE_PAGES = {
+      patient: 'platform/patient/index.html',
+      nurse:   'platform/nurse/index.html'
+      // doctor : 준비 중
+    };
+    var ROLE_LABEL = { doctor:'의사', nurse:'간호사', patient:'환자/가족' };
+
+    function toast(msg){
+      var t = document.getElementById('bnToast');
+      if(!t){
+        t = document.createElement('div'); t.id='bnToast';
+        t.style.cssText='position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(12px);'
+          +'background:rgba(26,46,33,.94);color:#fff;font-size:13.5px;font-weight:600;padding:12px 20px;'
+          +'border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.28);z-index:2000;opacity:0;'
+          +'transition:opacity .22s, transform .22s;max-width:88%;text-align:center;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)'; });
+      clearTimeout(t._h);
+      t._h = setTimeout(function(){ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(12px)'; }, 2600);
+    }
+
     // toggle the panel when the central avatar is clicked
     charImg.addEventListener('click', function(e){
       e.stopPropagation();
@@ -571,9 +598,24 @@
         opt.classList.add('active');
         var av = opt.getAttribute('data-avatar');
         if(av){ charImg.src = av; }
+        currentRole = opt.getAttribute('data-role') || currentRole;
         panel.classList.remove('open');
       });
     });
+
+    // "통합 대시보드 열기" — 현재 아바타 역할에 맞는 페이지로 이동
+    var dashBtn = document.getElementById('dashOpen');
+    if(dashBtn){
+      dashBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        var page = ROLE_PAGES[currentRole];
+        if(page){
+          window.location.href = page;
+        } else {
+          toast(ROLE_LABEL[currentRole] + ' 화면은 준비 중입니다. (현재 환자/가족 화면만 이용 가능)');
+        }
+      });
+    }
 
     // close when clicking elsewhere or pressing Escape
     document.addEventListener('click', function(e){

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basil Nexus · 환자/가족 화면</title>
+<meta name="description" content="홍길동님의 진료 예약·기록·검사결과·복약 정보·건강 요약을 한 곳에서." />
+<link rel="icon" href="../../assets/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
+<meta name="theme-color" content="#2f9e57" />
+<link rel="stylesheet" href="../css/shell.css" />
+</head>
+<body data-role="patient">
+
+<div class="shell">
+
+  <!-- ════════ 사이드바 ════════ -->
+  <aside class="sidebar">
+    <a class="sb-brand" href="../../index.html">
+      <img src="../../assets/logo-mark.png" alt="Basil Nexus" />
+      <span><span class="bt">Basil Nexus</span><br/><span class="bs">AI 통합 의료 플랫폼</span></span>
+    </a>
+    <span class="role-badge">환자/가족 화면</span>
+
+    <div class="sb-profile">
+      <img class="ava" src="../../assets/av-patient.png" alt="홍길동님" />
+      <div>
+        <div class="pn">홍길동님</div>
+        <div class="pm">1980.05.15 (만 44세)</div>
+        <div class="pm">010-1234-5678</div>
+        <div class="on">본인 인증 완료</div>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <a class="nav-i on" href="#"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>홈</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/><path d="M9 14l2 2 4-4"/></svg>진료 예약</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>진료 기록</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6"/></svg>검사 결과</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg>처방 약 / 복약 정보</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>서류 발급 / 신청</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>수납 / 결제 내역</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>건강 정보</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0"/><circle cx="17" cy="9" r="2.4"/><path d="M15 20a5 5 0 016-3"/></svg>가족 건강 관리</a>
+      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg>공지사항</a>
+    </nav>
+
+    <div class="sb-card">
+      <div class="sc-t">Basil Nexus 안내</div>
+      <div class="sc-s">궁금한 점이 있으신가요?</div>
+      <a class="sc-b" href="#">자주 묻는 질문 보기 ›</a>
+    </div>
+
+    <div class="sb-foot">
+      <div class="ft"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.6A2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.2a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg>고객센터</div>
+      <div class="fs">1661-XXXX · 평일 09:00~18:00</div>
+    </div>
+  </aside>
+
+  <!-- ════════ 메인 ════════ -->
+  <main class="main">
+    <div class="hello"><em>홍길동님</em>, 오늘도 건강한 하루 되세요!</div>
+    <div class="hello-sub">필요한 정보를 쉽게 확인하고, 편리하게 이용하세요.</div>
+
+    <!-- AI 입력 -->
+    <div class="ai-box">
+      <div class="ai-head">
+        <span class="leaf"><svg viewBox="0 0 24 24"><path d="M5 19c0-7 5-12 14-13-1 9-6 14-13 14a1 1 0 01-1-1z"/><path d="M6 18C9 13 12 10 17 8"/></svg></span>
+        <span class="at">Basil Nexus AI</span>
+        <span class="as">· 무엇을 도와드릴까요?</span>
+      </div>
+      <div class="ai-field">
+        <input type="text" placeholder='예) "진료기록 요약해줘", "복약 주의사항 알려줘", "진단서 발급 방법 알려줘"' />
+        <button class="send" aria-label="전송"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+      </div>
+      <div class="chips">
+        <span class="chip">진료기록 요약</span>
+        <span class="chip">검사결과 쉽게 설명</span>
+        <span class="chip">복약·주의사항 안내</span>
+        <span class="chip">서류 발급 방법</span>
+        <span class="chip">다음 예약 확인</span>
+      </div>
+    </div>
+
+    <!-- 주요 서비스 -->
+    <div class="block">
+      <div class="sec-t"><h2>주요 서비스 바로가기</h2></div>
+      <div class="quick">
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/><path d="M9 14l2 2 4-4"/></svg></span><h3>진료 예약</h3><p>예약 및 변경</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg></span><h3>진료 기록</h3><p>내 진료 내역 보기</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6"/></svg></span><h3>검사 결과</h3><p>검사결과 확인</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><h3>처방·약 정보</h3><p>처방 및 복약</p></a>
+        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg></span><h3>서류 발급</h3><p>진단서 신청</p></a>
+      </div>
+    </div>
+
+    <!-- 일정 + 진료기록 -->
+    <div class="block cards-2">
+      <!-- 나의 일정 -->
+      <div class="card">
+        <div class="sec-t"><h2>나의 일정</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="appt-next">
+          <div>
+            <div class="dt">2025.06.04 (수) 10:00</div>
+            <div class="meta">가정의학과 / 김철수 원장</div>
+          </div>
+          <span class="dday">D-7</span>
+        </div>
+        <div class="tl">
+          <div class="tl-t">예정된 일정</div>
+          <div class="tl-row"><span class="dot"></span><span class="d">2025.06.11 (수)</span><span class="h">09:00</span><span class="l">혈액검사</span></div>
+          <div class="tl-row"><span class="dot"></span><span class="d">2025.06.18 (수)</span><span class="h">10:30</span><span class="l">정기 검진</span></div>
+          <div class="tl-row"><span class="dot"></span><span class="d">2025.06.25 (수)</span><span class="h">14:00</span><span class="l">물리치료</span></div>
+        </div>
+        <div class="docs-foot"><a class="link" href="#">전체 일정 보기 <span class="arr">›</span></a></div>
+      </div>
+
+      <!-- 최근 진료 기록 -->
+      <div class="card">
+        <div class="sec-t"><h2>최근 진료 기록</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="rec-row">
+          <span class="rec-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z" fill="none"/></svg></span>
+          <div class="rec-b"><div class="rec-top">2025.05.28<b>가정의학과</b></div><div class="rec-dx">감기, 고지혈증</div><div class="rec-dr">김철수 원장</div></div>
+          <button class="btn-ghost">상세 보기</button>
+        </div>
+        <div class="rec-row">
+          <span class="rec-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg></span>
+          <div class="rec-b"><div class="rec-top">2025.04.15<b>정형외과</b></div><div class="rec-dx">허리 통증</div><div class="rec-dr">이민수 원장</div></div>
+          <button class="btn-ghost">상세 보기</button>
+        </div>
+        <div class="rec-row">
+          <span class="rec-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg></span>
+          <div class="rec-b"><div class="rec-top">2025.03.10<b>내과</b></div><div class="rec-dx">고혈압 정기 진료</div><div class="rec-dr">박영미 원장</div></div>
+          <button class="btn-ghost">상세 보기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 처방 약 -->
+    <div class="block card">
+      <div class="sec-t"><h2>처방 약 / 복약 정보</h2><a class="link" href="#">복약 안내 자세히 <span class="arr">›</span></a></div>
+      <div class="med-row">
+        <span class="pill cap"></span>
+        <div class="med-b"><div class="med-n">Amlodipine 5mg</div><div class="med-d">1일 1회, 아침 식후</div></div>
+        <span class="tag-on">복용 중</span>
+      </div>
+      <div class="med-row">
+        <span class="pill tab"></span>
+        <div class="med-b"><div class="med-n">Atorvastatin 10mg</div><div class="med-d">1일 1회, 저녁 식후</div></div>
+        <span class="tag-on">복용 중</span>
+      </div>
+      <div class="med-row">
+        <span class="pill tab2"></span>
+        <div class="med-b"><div class="med-n">비타민D 1000IU</div><div class="med-d">1일 1회, 식후</div></div>
+        <span class="tag-on">복용 중</span>
+      </div>
+    </div>
+
+    <!-- 서류 발급 -->
+    <div class="block card">
+      <div class="sec-t"><h2>서류 발급 / 신청</h2></div>
+      <div class="docs">
+        <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg></span><h4>진단서</h4><p>일반 진단서 발급</p></a>
+        <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/></svg></span><h4>소견서</h4><p>치료 소견서 발급</p></a>
+        <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="12" height="16" rx="2"/><path d="M5 7v12a2 2 0 002 2h9"/></svg></span><h4>진료기록 사본</h4><p>진료기록 복사본</p></a>
+        <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 14l2 2 3-3"/></svg></span><h4>검사결과서</h4><p>검사결과 증명서</p></a>
+        <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><h4>처방전 재발급</h4><p>처방전 다시 받기</p></a>
+      </div>
+      <div class="docs-foot"><a class="link" href="#">나의 발급 내역 보기 <span class="arr">›</span></a></div>
+    </div>
+  </main>
+
+  <!-- ════════ 우측 레일 ════════ -->
+  <aside class="rail">
+    <div class="rail-top">
+      <button class="icon-btn" aria-label="알림"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">2</span></button>
+      <button class="btn-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 진료 예약</button>
+    </div>
+
+    <!-- 환자 기본 정보 -->
+    <div class="card">
+      <div class="sec-t"><h2>환자 기본 정보</h2><a class="link" href="#">수정 <span class="arr">›</span></a></div>
+      <div class="kv"><span class="k">이름</span><span class="v">홍길동</span></div>
+      <div class="kv"><span class="k">생년월일</span><span class="v">1980.05.15</span></div>
+      <div class="kv"><span class="k">성별</span><span class="v">남</span></div>
+      <div class="kv"><span class="k">연락처</span><span class="v">010-1234-5678</span></div>
+      <div class="kv"><span class="k">이메일</span><span class="v">honggd@example.com</span></div>
+      <div class="kv"><span class="k">주소</span><span class="v">서울특별시 강남구 테헤란로 123</span></div>
+    </div>
+
+    <!-- 진료비 내역 -->
+    <div class="card">
+      <div class="sec-t"><h2>진료비 내역</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="bill-big"><div class="l">미수납 금액</div><div class="n">0원</div></div>
+      <div class="bill-row"><span class="bd">2025.05.28 · 외래 진료비</span><span class="bn">25,400원</span></div>
+      <div class="bill-foot"><a class="link" href="#">결제 내역 전체 보기 <span class="arr">›</span></a></div>
+    </div>
+
+    <!-- 건강 정보 요약 -->
+    <div class="card">
+      <div class="sec-t"><h2>건강 정보 요약</h2><a class="link" href="#">자세히 보기 <span class="arr">›</span></a></div>
+      <div class="health-row"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg></span><span class="hl">혈압</span><span class="hv">120 / 80 <small>mmHg</small></span></div>
+      <div class="health-row"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z"/></svg></span><span class="hl">혈당</span><span class="hv">98 <small>mg/dL</small></span></div>
+      <div class="health-row"><span class="hi"><svg viewBox="0 0 24 24"><path d="M6 4h12l-1 16H7L6 4z"/><path d="M6 9h12"/></svg></span><span class="hl">체중</span><span class="hv">72 <small>kg</small></span></div>
+      <div class="health-row"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-4"/></svg></span><span class="hl">BMI</span><span class="hv">23.6 <small>(정상)</small></span></div>
+      <div class="health-foot">최근 검진일: 2025.04.15</div>
+    </div>
+
+    <!-- 건강 관리 팁 -->
+    <div class="tip">
+      <div class="tip-h">
+        <span class="tip-ic"><svg viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="M11 8l-3 4 3 2 1 6"/><path d="M14 10l4 1M11 12l-3 6"/></svg></span>
+        <span class="tt">하루 30분 걷기</span>
+      </div>
+      <div class="ts">규칙적인 걷기 운동은 심혈관 건강에 도움이 됩니다.</div>
+      <a class="tip-more" href="#">더 많은 건강 팁 보기 ›</a>
+    </div>
+  </aside>
+
+  <!-- ════════ 푸터 ════════ -->
+  <footer class="page-foot">
+    <div class="foot-bar">
+      <span class="secure"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>On-Premise 보안 연결</span>
+      <span class="sep">·</span>
+      <span>Basil Nexus는 환자님의 데이터를 안전하게 보호합니다.</span>
+      <span class="right"><a href="#">이용약관</a><a href="#">개인정보처리방침</a></span>
+      <span class="copy">© 2025 NUMP. All rights reserved.</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
