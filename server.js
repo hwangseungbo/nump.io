@@ -22,7 +22,7 @@ const MIME = {
 // ── Basil Nexus AI 프록시 ───────────────────────────────────
 //   브라우저(HTTPS) → /api/medgemma-chat → (서버 내부) → http://121.158.168.10:5078/api/chat
 //   HTTPS 페이지에서 HTTP 챗 서비스를 직접 못 부르는 혼합콘텐츠/CORS 문제를 서버 중계로 우회.
-const AI_UPSTREAM = { host: '121.158.168.10', port: 5078, path: '/api/chat' };
+const AI_UPSTREAM = { host: '165.132.220.115', port: 5050, path: '/api/chat' };
 function handleAiProxy(req, res) {
   const chunks = [];
   let size = 0;

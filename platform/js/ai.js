@@ -20,6 +20,8 @@
 
   var history = [];
   var streaming = false;
+  // NUMP 챗봇은 세션 기반(서버가 히스토리 관리). 페이지 단위로 고정 세션 ID 사용.
+  var sessionId = 'bn-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -58,7 +60,7 @@
       var resp = await fetch('/api/medgemma-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history })
+        body: JSON.stringify({ session_id: sessionId, message: text })
       });
       if (!resp.ok || !resp.body) throw new Error('서버 응답 오류 (' + resp.status + ')');
       var reader = resp.body.getReader();
@@ -75,7 +77,8 @@
           if (ev.indexOf('data: ') !== 0) continue;
           var d;
           try { d = JSON.parse(ev.slice(6)); } catch (e) { continue; }
-          if (d.delta) { raw += d.delta; ai.innerHTML = render(raw); chat.scrollTop = chat.scrollHeight; }
+          var piece = (d.delta != null) ? d.delta : d.content; // Medgemma=delta, NUMP챗봇=content
+          if (piece) { raw += piece; ai.innerHTML = render(raw); chat.scrollTop = chat.scrollHeight; }
           if (d.error) { ai.innerHTML = '<em class="ai-err">⚠️ ' + escapeHtml(d.error) + '</em>'; }
         }
       }
