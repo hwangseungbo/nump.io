@@ -172,7 +172,8 @@ body[data-role="nurse"] .role-badge{ box-shadow:0 5px 14px rgba(106,91,212,.28);
 
 /* Basil Nexus AI 대화 영역 (패널 내부, ChatGPT 스타일) */
 .ai-chat{ display:flex; flex-direction:column; gap:12px;
-  margin:14px 0 0; padding:14px 6px 2px 0; border-top:1px solid var(--line);
+  margin:14px 0 0; padding:16px; border:1px solid var(--line); border-radius:14px;
+  background:rgba(18,30,42,.09); box-shadow:inset 0 1px 6px rgba(18,30,42,.09);
   max-height:50vh; overflow-y:auto; overscroll-behavior:contain; scroll-behavior:smooth; }
 .ai-chat:empty{ display:none; }
 .ai-chat::-webkit-scrollbar{ width:8px; }
@@ -192,6 +193,18 @@ body[data-role="nurse"] .role-badge{ box-shadow:0 5px 14px rgba(106,91,212,.28);
 .ai-bubble code{ background:rgba(0,0,0,.06); padding:1px 5px; border-radius:5px; font-size:12px; font-family:monospace; }
 .ai-bubble pre{ background:#0f1a14; color:#dbe7df; padding:11px 13px; border-radius:10px; overflow-x:auto; font-size:12px; }
 .ai-bubble pre code{ background:none; padding:0; color:inherit; }
+.ai-bubble strong,.ai-bubble b{ font-weight:700; color:var(--ink); }
+.ai-bubble em{ font-style:italic; }
+.ai-bubble a{ color:var(--accent-d); text-decoration:underline; }
+.ai-bubble h4,.ai-bubble h5,.ai-bubble h6{ font-size:13px; font-weight:800; margin:8px 0 4px; }
+.ai-bubble blockquote{ margin:8px 0; padding:4px 12px; border-left:3px solid var(--accent-line); color:var(--muted); }
+.ai-bubble hr{ border:none; border-top:1px solid var(--line); margin:12px 0; }
+/* 표 — LLM 답변에서 자주 쓰임. 좁은 말풍선에서 가로 스크롤 */
+.ai-bubble table{ border-collapse:collapse; width:100%; margin:10px 0; font-size:12.5px; display:block; overflow-x:auto; }
+.ai-bubble th,.ai-bubble td{ border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+.ai-bubble th{ background:var(--page); font-weight:700; color:var(--ink); white-space:nowrap; }
+.ai-bubble tbody tr:nth-child(even) td{ background:rgba(0,0,0,.02); }
+.ai-bubble table code{ white-space:nowrap; }
 .ai-err{ color:#e5484d; font-style:normal; }
 .ai-dots{ display:inline-flex; gap:5px; padding:2px 0; }
 .ai-dots i{ width:6px; height:6px; border-radius:50%; background:var(--muted-2); animation:aiDot 1s infinite; }

@@ -34,6 +34,22 @@
     } catch (e) {}
     return escapeHtml(md).replace(/\n/g, '<br>');
   }
+  // LaTeX 수식 렌더 (KaTeX auto-render). 스트림 완료 후 한 번 호출.
+  function typeset(el) {
+    if (!window.renderMathInElement) return;
+    try {
+      window.renderMathInElement(el, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\[', right: '\\]', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        ignoredTags: ['script', 'style', 'textarea', 'pre', 'code'],
+        throwOnError: false
+      });
+    } catch (e) {}
+  }
   function bubble(role, html) {
     var wrap = document.createElement('div');
     wrap.className = 'ai-msg ' + role;
@@ -82,6 +98,7 @@
           if (d.error) { ai.innerHTML = '<em class="ai-err">⚠️ ' + escapeHtml(d.error) + '</em>'; }
         }
       }
+      typeset(ai); // 스트림 완료 후 수식 렌더
       if (!raw && !ai.querySelector('.ai-err')) ai.innerHTML = '<em class="ai-err">응답이 없습니다.</em>';
     } catch (e) {
       ai.innerHTML = '<em class="ai-err">⚠️ ' + escapeHtml(e.message) + '</em>';
