@@ -9,6 +9,19 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
 <meta name="theme-color" content="#2f9e57" />
 <link rel="stylesheet" href="../css/shell.css?v=8" />
+<style>
+/* P4: 의사 대시보드 데이터 연동 전용 미세 스타일 */
+.st.done{ background:#ececec; color:#8b9089; }
+.sys-i .sv.bad{ color:#e5484d; }
+#aiSumBtn:disabled{ opacity:.55; cursor:default; }
+#aiSumCard .ai-summary ul{ margin:6px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:6px; }
+#aiSumCard .ai-summary li{ font-size:12.5px; color:var(--ink-2); line-height:1.45; }
+#aiSumCard .ai-summary p{ margin:0 0 6px; }
+#bnToast{ position:fixed; left:50%; bottom:28px; transform:translate(-50%,8px); background:rgba(32,38,34,.92);
+  color:#fff; font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:999px; opacity:0;
+  pointer-events:none; transition:opacity .2s, transform .2s; z-index:999; }
+#bnToast.show{ opacity:1; transform:translate(-50%,0); }
+</style>
 </head>
 <body data-role="doctor">
 
@@ -56,7 +69,7 @@
 
     <div class="sb-foot">
       <div class="stitle">오늘 외래 현황</div>
-      <div class="sb-stats">
+      <div class="sb-stats" id="sbStats">
         <div class="sb-stat"><div class="sn">28명</div><div class="sl">예약 환자</div></div>
         <div class="sb-stat"><div class="sn">12명</div><div class="sl">진료 대기</div></div>
       </div>
@@ -105,7 +118,7 @@
 
     <!-- 일정 + 서류 요청 -->
     <div class="block cards-2">
-      <div class="card">
+      <div class="card" id="schedCard">
         <div class="sec-t"><h2>나의 일정</h2><a class="link" href="#">전체 일정 <span class="arr">›</span></a></div>
         <div class="tl-t" style="margin-bottom:8px">2025년 5월 28일 (수)</div>
         <div class="sch-row"><span class="dot"></span><span class="h">09:00</span><span class="nm">김철수 (M/45)</span><span class="dx">고혈압·골다공증</span><span class="st now">진료 중</span></div>
@@ -116,7 +129,7 @@
         <div class="docs-foot"><a class="link" href="#">전체 일정 보기 <span class="arr">›</span></a></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="docReqCard">
         <div class="sec-t"><h2>나의 서류 요청 현황</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
         <div class="row-lc"><span class="lab">진단서 요청</span><span class="c">3건</span></div>
         <div class="row-lc"><span class="lab">소견서 요청</span><span class="c">2건</span></div>
@@ -126,7 +139,7 @@
     </div>
 
     <!-- 진료 통계 -->
-    <div class="block card">
+    <div class="block card" id="statsCard">
       <div class="sec-t"><h2>진료 통계 <span class="muted" style="font-weight:600">(이번 달)</span></h2></div>
       <div class="stat-mini-row">
         <div class="stat-mini"><span class="smi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span><span class="smn">5명</span> <span class="sml">대기 환자</span></span></div>
@@ -143,7 +156,7 @@
     <!-- 시스템 상태 -->
     <div class="block card">
       <div class="sec-t"><h2>시스템 상태</h2></div>
-      <div class="sysbar">
+      <div class="sysbar" id="sysBar">
         <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg></span><span><span class="sn">On-Premise 연결</span><br/><span class="sv">정상</span></span></span>
         <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 014 4c2 1 3 3 3 5a5 5 0 01-2 4 4 4 0 01-8 0 5 5 0 01-2-4c0-2 1-4 3-5a4 4 0 014-4z"/></svg></span><span><span class="sn">모델 SageFM</span><br/><span class="sv">정상</span></span></span>
         <span class="sys-i"><span class="si"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg></span><span><span class="sn">데이터 백업</span><br/><span class="sv">정상</span></span></span>
@@ -155,17 +168,17 @@
   <!-- ════════ 우측 레일 ════════ -->
   <aside class="rail">
     <div class="rail-top">
-      <button class="icon-btn" aria-label="알림"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></button>
+      <button class="icon-btn" aria-label="알림"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge" id="alertBadge">3</span></button>
       <button class="btn-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 새 환자 등록</button>
     </div>
 
     <div class="rail-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" placeholder="환자 이름 또는 ID 입력 (예: 김철수)" />
+      <input type="text" id="patientSearch" placeholder="환자 이름 또는 ID 입력 (예: 김철수)" />
     </div>
 
     <!-- 최근 조회 환자 -->
-    <div class="card">
+    <div class="card" id="recentCard">
       <div class="sec-t"><h2>최근 조회 환자</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
       <div class="pt-head">
         <img class="pa" src="../../assets/av-patient.png" alt="" />
@@ -179,7 +192,7 @@
     </div>
 
     <!-- SageFM 환자 요약 -->
-    <div class="card">
+    <div class="card" id="aiSumCard">
       <div class="sec-t"><h2>SageFM 환자 요약</h2><a class="link" href="#">더 보기 <span class="arr">›</span></a></div>
       <div class="ai-summary">김철수 환자의 최근 3개월 진료 데이터를 분석한 요약입니다.</div>
       <ul class="bullets">
@@ -188,7 +201,7 @@
         <li>약물 순응도 양호, 이상반응 없음</li>
         <li>다음 방문: 골다공증 치료 평가 및 DEXA 재검 권장</li>
       </ul>
-      <div class="summary-foot"><a class="link" href="#">전체 요약 보기 <span class="arr">›</span></a></div>
+      <div class="summary-foot"><button class="btn-ghost" id="aiSumBtn" type="button">AI 요약 생성</button></div>
     </div>
 
     <!-- 수가 청구 자동 작성 -->
@@ -233,6 +246,8 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="../js/auth.js?v=1"></script>
 <script src="../js/ai.js?v=8"></script>
+<script src="../js/doctor.js?v=1"></script>
 </body>
 </html>

@@ -9,6 +9,48 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
 <meta name="theme-color" content="#2f9e57" />
 <link rel="stylesheet" href="../css/shell.css?v=8" />
+<style>
+/* ── P4: 환자 대시보드 — 예약 모달 / 토스트 / 발급 내역 (patient.js 전용) ── */
+.bn-overlay{ position:fixed; inset:0; background:rgba(31,45,39,.45); display:none;
+  align-items:center; justify-content:center; z-index:1000; }
+.bn-overlay.open{ display:flex; }
+.bn-modal{ background:var(--card,#fff); width:min(360px, calc(100vw - 40px));
+  border:1px solid var(--accent-line,#d6ecdd); border-radius:16px; padding:22px;
+  box-shadow:0 20px 50px rgba(23,107,58,.25); }
+.bn-modal h3{ font-size:16px; font-weight:800; color:var(--ink,#1f2d27); margin:0 0 6px; }
+.bn-modal label{ display:block; font-size:12.5px; font-weight:700; color:var(--ink-2,#364a3f); margin:12px 0 5px; }
+.bn-modal input[type="date"], .bn-modal select{ width:100%; padding:9px 10px;
+  border:1px solid var(--accent-line,#d6ecdd); border-radius:10px;
+  font-family:inherit; font-size:13.5px; color:var(--ink,#1f2d27); background:var(--card,#fff); }
+.bn-modal input[type="date"]:focus, .bn-modal select:focus{ outline:none;
+  border-color:var(--accent,#2f9e57); box-shadow:0 0 0 3px var(--accent-soft,#e9f6ee); }
+.bn-modal-err{ margin-top:12px; font-size:12.5px; font-weight:600; color:#c0392b;
+  background:#fdecea; border:1px solid #f5c6c0; border-radius:9px; padding:8px 11px; }
+.bn-modal-btns{ display:flex; gap:8px; margin-top:16px; }
+.bn-modal-btns button{ flex:1; padding:10px 0; border-radius:10px; font-family:inherit;
+  font-size:13.5px; font-weight:700; cursor:pointer; }
+.bn-btn-primary{ border:none; background:var(--accent,#2f9e57); color:#fff; }
+.bn-btn-primary:hover{ background:var(--accent-d,#1f8a4c); }
+.bn-btn-primary:disabled{ opacity:.6; cursor:default; }
+.bn-btn-ghost{ border:1px solid var(--line,#ecefec); background:var(--card,#fff); color:var(--ink-2,#364a3f); }
+.bn-btn-ghost:hover{ background:var(--page,#f3f5f7); }
+.bn-toast{ position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(8px);
+  background:var(--accent-dd,#176b3a); color:#fff; font-size:13.5px; font-weight:600;
+  padding:11px 18px; border-radius:999px; box-shadow:0 10px 30px rgba(23,107,58,.35);
+  opacity:0; transition:opacity .25s, transform .25s; z-index:1100; pointer-events:none; }
+.bn-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.bn-toast.err{ background:#c0392b; box-shadow:0 10px 30px rgba(192,57,43,.3); }
+.bn-docs-list{ display:none; margin-top:12px; border-top:1px solid var(--line,#ecefec); padding-top:10px; }
+.bn-docs-list.open{ display:block; }
+.bn-doc-row{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:7px 2px; font-size:13px; color:var(--ink-2,#364a3f); border-bottom:1px dashed var(--line-2,#f1f4f1); }
+.bn-doc-row:last-child{ border-bottom:none; }
+.bn-doc-st{ font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+.bn-doc-st.st-requested{ background:var(--accent-soft,#e9f6ee); color:var(--accent-dd,#176b3a); }
+.bn-doc-st.st-issued{ background:var(--accent,#2f9e57); color:#fff; }
+.bn-doc-st.st-rejected{ background:#fdecea; color:#c0392b; }
+.bn-docs-empty{ font-size:12.5px; color:var(--muted,#7f8e85); padding:6px 2px; }
+</style>
 </head>
 <body data-role="patient">
 
@@ -99,14 +141,14 @@
       <!-- 나의 일정 -->
       <div class="card">
         <div class="sec-t"><h2>나의 일정</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
-        <div class="appt-next">
+        <div class="appt-next" id="bnApptNext">
           <div>
             <div class="dt">2025.06.04 (수) 10:00</div>
             <div class="meta">가정의학과 / 김철수 원장</div>
           </div>
           <span class="dday">D-7</span>
         </div>
-        <div class="tl">
+        <div class="tl" id="bnUpcoming">
           <div class="tl-t">예정된 일정</div>
           <div class="tl-row"><span class="dot"></span><span class="d">2025.06.11 (수)</span><span class="h">09:00</span><span class="l">혈액검사</span></div>
           <div class="tl-row"><span class="dot"></span><span class="d">2025.06.18 (수)</span><span class="h">10:30</span><span class="l">정기 검진</span></div>
@@ -116,7 +158,7 @@
       </div>
 
       <!-- 최근 진료 기록 -->
-      <div class="card">
+      <div class="card" id="bnRecCard">
         <div class="sec-t"><h2>최근 진료 기록</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
         <div class="rec-row">
           <span class="rec-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z" fill="none"/></svg></span>
@@ -137,7 +179,7 @@
     </div>
 
     <!-- 처방 약 -->
-    <div class="block card">
+    <div class="block card" id="bnMedCard">
       <div class="sec-t"><h2>처방 약 / 복약 정보</h2><a class="link" href="#">복약 안내 자세히 <span class="arr">›</span></a></div>
       <div class="med-row">
         <span class="pill cap"></span>
@@ -157,7 +199,7 @@
     </div>
 
     <!-- 서류 발급 -->
-    <div class="block card">
+    <div class="block card" id="bnDocsCard">
       <div class="sec-t"><h2>서류 발급 / 신청</h2></div>
       <div class="docs">
         <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg></span><h4>진단서</h4><p>일반 진단서 발급</p></a>
@@ -166,7 +208,7 @@
         <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 14l2 2 3-3"/></svg></span><h4>검사결과서</h4><p>검사결과 증명서</p></a>
         <a class="doc-c" href="#"><span class="di"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><h4>처방전 재발급</h4><p>처방전 다시 받기</p></a>
       </div>
-      <div class="docs-foot"><a class="link" href="#">나의 발급 내역 보기 <span class="arr">›</span></a></div>
+      <div class="docs-foot"><a class="link" href="#" id="bnDocsHist">나의 발급 내역 보기 <span class="arr">›</span></a></div>
     </div>
   </main>
 
@@ -174,11 +216,11 @@
   <aside class="rail">
     <div class="rail-top">
       <button class="icon-btn" aria-label="알림"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">2</span></button>
-      <button class="btn-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 진료 예약</button>
+      <button class="btn-cta" id="bnApptBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 진료 예약</button>
     </div>
 
     <!-- 환자 기본 정보 -->
-    <div class="card">
+    <div class="card" id="bnProfileCard">
       <div class="sec-t"><h2>환자 기본 정보</h2><a class="link" href="#">수정 <span class="arr">›</span></a></div>
       <div class="kv"><span class="k">이름</span><span class="v">홍길동</span></div>
       <div class="kv"><span class="k">생년월일</span><span class="v">1980.05.15</span></div>
@@ -189,7 +231,7 @@
     </div>
 
     <!-- 진료비 내역 -->
-    <div class="card">
+    <div class="card" id="bnBillCard">
       <div class="sec-t"><h2>진료비 내역</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
       <div class="bill-big"><div class="l">미수납 금액</div><div class="n">0원</div></div>
       <div class="bill-row"><span class="bd">2025.05.28 · 외래 진료비</span><span class="bn">25,400원</span></div>
@@ -197,7 +239,7 @@
     </div>
 
     <!-- 건강 정보 요약 -->
-    <div class="card">
+    <div class="card" id="bnHealthCard">
       <div class="sec-t"><h2>건강 정보 요약</h2><a class="link" href="#">자세히 보기 <span class="arr">›</span></a></div>
       <div class="health-row"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg></span><span class="hl">혈압</span><span class="hv">120 / 80 <small>mmHg</small></span></div>
       <div class="health-row"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z"/></svg></span><span class="hl">혈당</span><span class="hv">98 <small>mg/dL</small></span></div>
@@ -234,6 +276,8 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="../js/auth.js?v=1"></script>
 <script src="../js/ai.js?v=8"></script>
+<script src="../js/patient.js?v=1"></script>
 </body>
 </html>
