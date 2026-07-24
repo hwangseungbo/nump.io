@@ -40,7 +40,7 @@
     background-color:#ececea;
     background-image:
       linear-gradient(180deg, rgba(236,236,234,0) 0px, rgba(236,236,234,0) 500px, #ececea 710px),
-      url('assets/hero-bg.png');
+      url('assets/hero-bg.webp');
     background-repeat:no-repeat, no-repeat;
     background-position:top center, top center;
     background-size:100% 100%, 100% auto;
@@ -209,7 +209,7 @@
     text-align:center;
   }
   .promo::before{ content:""; position:absolute; inset:0;
-    background:url('assets/frame.png') center/150% no-repeat; opacity:.16; mix-blend-mode:screen; }
+    background:url('assets/frame.webp') center/150% no-repeat; opacity:.16; mix-blend-mode:screen; }
   .promo > *{ position:relative; z-index:2; }
   .promo .plogo{ display:flex; align-items:center; gap:11px; margin-bottom:6px; }
   .promo .plogo .n{ width:42px;height:42px;border-radius:12px;background:#fff;
@@ -362,7 +362,7 @@
 
     <!-- AI character + leaf frame -->
     <div class="hero-figure">
-      <img class="frame" src="assets/frame.png" alt="" />
+      <img class="frame" src="assets/frame.webp" alt="" />
       <img class="char" id="heroChar" src="assets/av-doctor.png" alt="Basil Nexus AI 아바타 (클릭하여 변경)" title="클릭하여 아바타 변경" />
       <div class="ai-tag">Basil Nexus AI</div>
     </div>
@@ -390,32 +390,32 @@
   <!-- ======= SERVICES ======= -->
   <section class="services">
     <div class="svc-card" data-title="SageFM" data-sub="의료 파운데이션 모델" data-video="RYEtoKKEmPU" data-service="http://165.132.220.115:5096">
-      <img class="ico" src="assets/svc/sagefm.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/sagefm.png" alt="" />
       <h3>SageFM</h3><p>의료 파운데이션 모델</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
     <div class="svc-card" data-title="MintNote" data-sub="음성 EMR" data-video="citpZQPXaOc" data-service="http://165.132.220.115:5098">
-      <img class="ico" src="assets/svc/mintnote.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/mintnote.png" alt="" />
       <h3>MintNote</h3><p>음성 EMR</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
     <div class="svc-card" data-title="ThymeCare" data-sub="수가 심사 · 삭감 방지" data-video="WAAfJvgpJNQ">
-      <img class="ico" src="assets/svc/thymecare.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/thymecare.png" alt="" />
       <h3>ThymeCare</h3><p>수가 심사 · 삭감 방지</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
     <div class="svc-card" data-title="Rosemary Insight" data-sub="의학 인사이트" data-video="">
-      <img class="ico" src="assets/svc/rosemary.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/rosemary.png" alt="" />
       <h3>Rosemary Insight</h3><p>의학 인사이트</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
     <div class="svc-card" data-title="LavenderRx" data-sub="약물 상호작용" data-video="">
-      <img class="ico" src="assets/svc/lavenderrx.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/lavenderrx.png" alt="" />
       <h3>LavenderRx</h3><p>약물 상호작용</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
     <div class="svc-card" data-title="Chamomile24" data-sub="24/7 환자 케어" data-video="" data-service="https://chat.nump.io">
-      <img class="ico" src="assets/svc/chamomile.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/chamomile.png" alt="" />
       <h3>Chamomile24</h3><p>24/7 환자 케어</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
@@ -424,7 +424,7 @@
   <!-- ======= MID ROW ======= -->
   <section class="midrow">
     <div class="info-card">
-      <img class="ico" src="assets/svc/ctmri.png" alt="" />
+      <img class="ico" loading="lazy" decoding="async" src="assets/svc/ctmri.png" alt="" />
       <div class="body">
         <h3>CT / MRI 분석</h3>
         <div class="sub">의료 영상 AI 분석</div>
@@ -434,7 +434,7 @@
     </div>
 
     <div class="promo">
-      <div class="plogo"><span class="n"><img src="assets/logo-mark.png" alt="Basil Nexus" /></span><b>Basil Nexus</b></div>
+      <div class="plogo"><span class="n"><img loading="lazy" decoding="async" src="assets/logo-mark.png" alt="Basil Nexus" /></span><b>Basil Nexus</b></div>
       <p>모든 AI 에이전트가 연결된 통합 플랫폼</p>
       <a class="btn" id="dashOpen" href="#">통합 대시보드 열기 <span>→</span></a>
     </div>
@@ -465,17 +465,17 @@
       <h2>최근 환자</h2>
       <div class="list">
         <div class="p-row">
-          <img class="pa" src="assets/thumb/doctor.png" alt="" />
+          <img class="pa" loading="lazy" decoding="async" src="assets/thumb/doctor.png" alt="" />
           <div><div class="pname">김민수 <span style="color:var(--muted-2);font-weight:500;font-size:11.5px">(M/45)</span></div></div>
           <div class="pright"><div class="pdate">2024-05-28</div><span class="pdept">내과</span></div>
         </div>
         <div class="p-row">
-          <img class="pa" src="assets/thumb/nurse.png" alt="" />
+          <img class="pa" loading="lazy" decoding="async" src="assets/thumb/nurse.png" alt="" />
           <div><div class="pname">이영희 <span style="color:var(--muted-2);font-weight:500;font-size:11.5px">(F/32)</span></div></div>
           <div class="pright"><div class="pdate">2024-05-28</div><span class="pdept">가정의학과</span></div>
         </div>
         <div class="p-row">
-          <img class="pa" src="assets/thumb/patient.png" alt="" />
+          <img class="pa" loading="lazy" decoding="async" src="assets/thumb/patient.png" alt="" />
           <div><div class="pname">박지훈 <span style="color:var(--muted-2);font-weight:500;font-size:11.5px">(M/28)</span></div></div>
           <div class="pright"><div class="pdate">2024-05-27</div><span class="pdept">정형외과</span></div>
         </div>
@@ -488,25 +488,25 @@
       <h2>최근 활동</h2>
       <div class="list">
         <div class="a-row">
-          <div class="a-ico" style="background:#e8f4ea"><img src="assets/svc/mintnote.png" alt=""/></div>
+          <div class="a-ico" style="background:#e8f4ea"><img loading="lazy" decoding="async" src="assets/svc/mintnote.png" alt=""/></div>
           <div class="abody"><div class="aname" style="color:var(--green-d)">MintNote</div>
             <div class="adesc">김민수 환자 진료기록 작성 완료</div></div>
           <div class="atime">5분 전</div>
         </div>
         <div class="a-row">
-          <div class="a-ico" style="background:#e6f1ec"><img src="assets/svc/thymecare.png" alt=""/></div>
+          <div class="a-ico" style="background:#e6f1ec"><img loading="lazy" decoding="async" src="assets/svc/thymecare.png" alt=""/></div>
           <div class="abody"><div class="aname" style="color:var(--teal)">ThymeCare</div>
             <div class="adesc">보험청구 검토 완료, 경고 1건 발견</div></div>
           <div class="atime">15분 전</div>
         </div>
         <div class="a-row">
-          <div class="a-ico" style="background:#eee9f6"><img src="assets/svc/lavenderrx.png" alt=""/></div>
+          <div class="a-ico" style="background:#eee9f6"><img loading="lazy" decoding="async" src="assets/svc/lavenderrx.png" alt=""/></div>
           <div class="abody"><div class="aname" style="color:var(--lavender)">LavenderRx</div>
             <div class="adesc">약물 상호작용 검토 완료</div></div>
           <div class="atime">32분 전</div>
         </div>
         <div class="a-row">
-          <div class="a-ico" style="background:#e7f0e8"><img src="assets/svc/rosemary.png" alt=""/></div>
+          <div class="a-ico" style="background:#e7f0e8"><img loading="lazy" decoding="async" src="assets/svc/rosemary.png" alt=""/></div>
           <div class="abody"><div class="aname" style="color:var(--green-dd)">Rosemary Insight</div>
             <div class="adesc">최신 가이드라인 업데이트</div></div>
           <div class="atime">45분 전</div>
