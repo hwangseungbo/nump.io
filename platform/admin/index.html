@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basil Nexus · 관리자</title>
+<link rel="icon" href="../../assets/favicon.ico" sizes="any" />
+<meta name="theme-color" content="#2f9e57" />
+<link rel="stylesheet" href="../css/shell.css?v=8" />
+<style>
+  .admin-wrap{ max-width:1080px; margin:0 auto; padding:26px 22px 60px; }
+  .admin-head{ display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+  .admin-head img{ height:38px; }
+  .admin-head h1{ font-size:20px; font-weight:800; }
+  .admin-head .right{ margin-left:auto; display:flex; gap:10px; align-items:center; }
+  .grid2{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; align-items:start; }
+  table.users{ width:100%; border-collapse:collapse; font-size:13px; }
+  .users th,.users td{ border-bottom:1px solid var(--line-2); padding:10px 8px; text-align:left; }
+  .users th{ color:var(--muted); font-size:11.5px; font-weight:700; }
+  .role-pill{ font-size:10.5px; font-weight:700; padding:3px 10px; border-radius:999px; }
+  .role-pill.admin{ background:#fdeaea; color:#c0392b; }
+  .role-pill.doctor{ background:#e9f6ee; color:#1f8a4c; }
+  .role-pill.nurse{ background:#eeebfb; color:#5848c2; }
+  .role-pill.patient{ background:#e1f0f7; color:#2e7aa8; }
+  .f label{ display:block; font-size:12px; font-weight:700; margin:12px 0 5px; }
+  .f input,.f select{ width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    font-family:inherit; font-size:13px; outline:none; background:var(--page); }
+  .f input:focus,.f select:focus{ border-color:var(--accent); background:#fff; }
+  .f .btn{ width:100%; margin-top:16px; background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:11px; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .msg{ display:none; margin-top:12px; font-size:12.5px; padding:9px 12px; border-radius:9px; }
+  .msg.ok{ background:#e9f6ee; color:#1f8a4c; border:1px solid #cfe9d8; }
+  .msg.bad{ background:#fdeaea; color:#c0392b; border:1px solid #f5c2c2; }
+</style>
+</head>
+<body data-role="admin">
+<div class="admin-wrap">
+  <div class="admin-head">
+    <img src="../../assets/logo-mark.png" alt="" />
+    <h1>Basil Nexus 관리자 <span class="muted" style="font-weight:600;font-size:13px">· 계정 관리</span></h1>
+    <div class="right">
+      <a class="btn-ghost" href="../../index.html">메인으로</a>
+      <button class="btn-ghost" id="logoutBtn">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="sec-t"><h2>계정 목록</h2><span class="muted" id="cnt"></span></div>
+      <table class="users">
+        <thead><tr><th>ID</th><th>아이디</th><th>이름</th><th>역할</th><th>소속/정보</th><th>생성일</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="6" class="muted">불러오는 중…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card f">
+      <div class="sec-t"><h2>새 계정 생성</h2></div>
+      <form id="createForm">
+        <label>아이디</label><input name="username" required minlength="3" placeholder="예: doctor2" />
+        <label>비밀번호 (8자 이상)</label><input name="password" type="password" required minlength="8" />
+        <label>이름</label><input name="name" required placeholder="예: 김의사" />
+        <label>역할</label>
+        <select name="role" id="roleSel">
+          <option value="doctor">의사</option>
+          <option value="nurse">간호사</option>
+          <option value="patient">환자</option>
+          <option value="admin">관리자</option>
+        </select>
+        <div id="extraDoctor"><label>진료과</label><input name="department" placeholder="예: 가정의학과" /></div>
+        <div id="extraNurse" style="display:none"><label>병동</label><input name="ward" placeholder="예: 내과 병동" /></div>
+        <div id="extraPatient" style="display:none">
+          <label>생년월일</label><input name="birth_date" type="date" />
+          <label>연락처</label><input name="phone" placeholder="010-0000-0000" />
+        </div>
+        <button class="btn" type="submit">계정 생성</button>
+        <div class="msg" id="msg"></div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var rows=document.getElementById('rows'), cnt=document.getElementById('cnt'), msg=document.getElementById('msg');
+  var roleLabel={admin:'관리자',doctor:'의사',nurse:'간호사',patient:'환자'};
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function info(p,role){
+    if(role==='doctor') return p.department||'';
+    if(role==='nurse')  return p.ward||'';
+    if(role==='patient')return [p.birth_date,p.phone].filter(Boolean).join(' · ');
+    return '';
+  }
+  function load(){
+    fetch('/api/admin/users').then(function(r){
+      if(r.status===401){ location.href='../login.html'; return null; }
+      if(r.status===403){ alert('관리자 권한이 필요합니다.'); location.href='../../index.html'; return null; }
+      return r.json();
+    }).then(function(d){
+      if(!d) return;
+      cnt.textContent = d.users.length + '개 계정';
+      rows.innerHTML = d.users.map(function(u){
+        return '<tr><td>'+u.id+'</td><td>'+esc(u.username)+'</td><td>'+esc(u.name)+'</td>'
+          +'<td><span class="role-pill '+u.role+'">'+roleLabel[u.role]+'</span></td>'
+          +'<td>'+esc(info(u.profile||{},u.role))+'</td>'
+          +'<td>'+String(u.created_at).slice(0,10)+'</td></tr>';
+      }).join('');
+    }).catch(function(){ rows.innerHTML='<tr><td colspan="6" class="muted">서버 연결 실패</td></tr>'; });
+  }
+
+  document.getElementById('roleSel').addEventListener('change', function(){
+    document.getElementById('extraDoctor').style.display = this.value==='doctor'?'':'none';
+    document.getElementById('extraNurse').style.display  = this.value==='nurse'?'':'none';
+    document.getElementById('extraPatient').style.display= this.value==='patient'?'':'none';
+  });
+
+  document.getElementById('createForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var f=e.target, role=f.role.value, profile={};
+    if(role==='doctor'&&f.department.value) profile.department=f.department.value;
+    if(role==='nurse'&&f.ward.value) profile.ward=f.ward.value;
+    if(role==='patient'){ if(f.birth_date.value)profile.birth_date=f.birth_date.value; if(f.phone.value)profile.phone=f.phone.value; }
+    msg.style.display='none';
+    fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:f.username.value.trim(),password:f.password.value,name:f.name.value.trim(),role:role,profile:profile})
+    }).then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(x){
+        msg.className='msg '+(x.ok?'ok':'bad'); msg.style.display='block';
+        msg.textContent = x.ok ? '계정이 생성되었습니다.' : (x.d.error||'생성 실패');
+        if(x.ok){ f.reset(); load(); }
+      })
+      .catch(function(){ msg.className='msg bad'; msg.style.display='block'; msg.textContent='서버 연결 실패'; });
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', function(){
+    fetch('/api/logout',{method:'POST'}).then(function(){ location.href='../login.html'; });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

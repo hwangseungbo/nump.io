@@ -1,0 +1,24 @@
+{
+  "name": "nump.io-main",
+  "version": "1.0.0",
+  "description": "의료 AI 통합 플랫폼. **Basil Nexus 대시보드**(루트)와 모델 공유 사이트 **Lifoneer**(`/lifoneer/`)로 구성된 정적 웹사이트로, 로컬 PC에서 직접 호스팅하여 [nump.io](https://nump.io) 도메인으로 서비스됩니다.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hwangseungbo/nump.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hwangseungbo/nump.io/issues"
+  },
+  "homepage": "https://github.com/hwangseungbo/nump.io#readme",
+  "dependencies": {
+    "pg": "^8.22.0"
+  }
+}

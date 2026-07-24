@@ -603,17 +603,33 @@
       });
     });
 
-    // "통합 대시보드 열기" — 현재 아바타 역할에 맞는 페이지로 이동
+    // 로그인 상태면 아바타를 내 역할로 자동 표시
+    var AV = { doctor:'assets/av-doctor.png', nurse:'assets/av-nurse.png', patient:'assets/av-patient.png' };
+    fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+      if(!me) return;
+      if(AV[me.role]){
+        charImg.src = AV[me.role];
+        opts.forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-role') === me.role); });
+        currentRole = me.role;
+      }
+    }).catch(function(){});
+
+    // "통합 대시보드 열기" — 로그인 필요. 로그인돼 있으면 내 역할 페이지로,
+    // 아니면 로그인 페이지로 이동한다.
     var dashBtn = document.getElementById('dashOpen');
     if(dashBtn){
       dashBtn.addEventListener('click', function(e){
         e.preventDefault();
-        var page = ROLE_PAGES[currentRole];
-        if(page){
-          window.location.href = page;
-        } else {
-          toast(ROLE_LABEL[currentRole] + ' 화면은 준비 중입니다. (현재 환자/가족 화면만 이용 가능)');
-        }
+        fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+          if(me){
+            var page = me.role === 'admin' ? 'platform/admin/index.html' : ROLE_PAGES[me.role];
+            window.location.href = page || 'platform/login.html';
+          } else {
+            window.location.href = 'platform/login.html';
+          }
+        }).catch(function(){
+          toast('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        });
       });
     }
 
