@@ -72,12 +72,13 @@
   .nav-item svg{ width:20px; height:20px; stroke:#46624f; fill:none; stroke-width:1.8; }
   .nav-item span{ font-size:11px; color:var(--muted); font-weight:500; }
   .acct-btn{
-    display:flex; align-items:center; gap:7px;
+    display:none; align-items:center; gap:7px;
     background:linear-gradient(135deg,#4aab61,#2f8347);
     color:#fff; font-weight:600; font-size:13px;
     padding:10px 16px; border-radius:12px; margin-left:8px;
     box-shadow:0 6px 16px rgba(47,131,71,.28); cursor:pointer;
   }
+  .acct-btn.show{ display:flex; }
   .acct-btn svg{ width:16px; height:16px; stroke:#fff; fill:none; stroke-width:1.9; }
   .auth-box{ display:none; align-items:center; gap:9px; margin-left:8px;
     padding:7px 8px 7px 14px; background:#fff; border:1px solid var(--line,#e4ece2); border-radius:12px; }
@@ -334,7 +335,7 @@
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9.3a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>
         <span>설정</span>
       </div>
-      <div class="acct-btn">
+      <div class="acct-btn" id="acctBtn" title="수가 청구 화면으로 이동">
         <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4"/></svg>
         회계 관리
       </div>
@@ -647,6 +648,14 @@
         charImg.src = AV[me.role];
         opts.forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-role') === me.role); });
         currentRole = me.role;
+      }
+      // 회계 관리 버튼 — 의사/관리자에게만 노출, 수가 청구 뷰로 딥링크
+      var acct = document.getElementById('acctBtn');
+      if(acct && (me.role === 'doctor' || me.role === 'admin')){
+        acct.classList.add('show');
+        acct.addEventListener('click', function(){
+          location.href = 'platform/doctor/index.html#view-billing';
+        });
       }
     }).catch(function(){ renderAuthBox(null); });
 
