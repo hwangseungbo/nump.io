@@ -84,7 +84,7 @@
 ```
 - nextAppt: 미래 첫 예약(없으면 null → 패널 정적 유지). dday=일수. upcoming: 그다음 3건, label=kind 그대로(단 '진료'는 "정기 진료"로 표기).
 - encounters: 최근 3건 (dx=그 encounter의 diagnoses join ", "). meds: active prescriptions. docs: 본인 documents 최근 5건(statusLabel: requested→신청됨, issued→발급완료, rejected→반려).
-- bills: unpaid=미납 합계, rows 최근 3건. health: 최신 vitals 1건(bmiLabel: <18.5 저체중, <23 정상, <25 과체중, ≥25 비만), lastCheck=최근 lab_results.tested_at 또는 encounter 날짜.
+- bills: unpaid=미납 합계, rows 최근 3건. health: 최신 vitals 1건(bmiLabel: <18.5 저체중, <25 정상, <30 과체중, ≥30 비만 — WHO 기준), lastCheck=최근 lab_results.tested_at 또는 encounter 날짜.
 - alertCount: requested 상태 본인 서류 수 + 7일 내 예약 수.
 
 ## 4. GET /api/patients?q=…  (doctor, nurse, admin)

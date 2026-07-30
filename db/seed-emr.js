@@ -243,6 +243,8 @@ const EXTRA_DX = [
   // 최신 바이탈(120/80·98·72kg·BMI 23.6) + 진료비(외래 진료비 25,400원 수납 완료)
   await ensureVitals(hongId, at(-1, 9, 0), 120, 80, 98, 72.0, 23.6);
   await ensureBill(hongId, dateStr(at(-1)), '외래 진료비', 25400, true);
+  // P5 §5: 미납 진료비 1건(D-3, 혈액검사 비용 45,000원) — 자연키 환자+항목+금액, 멱등
+  await ensureBill(hongId, dateStr(at(-3)), '혈액검사 비용', 45000, false);
   // 검진 이력(최근 검진일 표기용, D-39)
   await ensureLab(hongId, dateStr(at(-39)), '총콜레스테롤', '210', '< 200', 'H');
   await ensureLab(hongId, dateStr(at(-39)), 'LDL-C', '135', '< 130', 'H');

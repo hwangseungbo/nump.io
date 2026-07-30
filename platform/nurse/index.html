@@ -19,6 +19,90 @@
 .bn-toast{ position:fixed; left:50%; bottom:28px; transform:translate(-50%,8px); background:#2c2c38; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:opacity .25s, transform .25s; z-index:9999; pointer-events:none; box-shadow:0 6px 20px rgba(0,0,0,.25); }
 .bn-toast.show{ opacity:1; transform:translate(-50%,0); }
 .sysbar .sv.sv-warn{ color:#e5484d; }
+
+/* ══ P5 뷰 공통 UI (view-head / vt / pgr / empty + 뷰 전용 폼·탭·뱃지) ══ */
+#viewHost{ display:none; }
+#viewHost .card{ margin-bottom:16px; }
+.view-head{ margin:2px 0 16px; }
+.view-head h2{ font-size:20px; font-weight:800; color:var(--ink,#222); letter-spacing:-.3px; }
+.view-head .vh-sub{ font-size:13px; color:var(--muted,#888); margin-top:4px; }
+.vt-wrap{ overflow-x:auto; }
+.vt{ width:100%; border-collapse:collapse; font-size:13px; }
+.vt thead th{ font-size:12px; color:var(--muted,#888); font-weight:700; text-align:left; padding:8px 10px; border-bottom:1px solid var(--line,#e5e5ee); white-space:nowrap; }
+.vt tbody td{ padding:9px 10px; border-bottom:1px solid var(--line,#e5e5ee); color:var(--ink-2,#444); vertical-align:middle; }
+.vt tbody tr:last-child td{ border-bottom:none; }
+.vt tbody tr:hover{ background:var(--line-2,#f4f4f8); }
+.vt tr.rowlink{ cursor:pointer; }
+.vt .cell-wide{ min-width:220px; white-space:normal; }
+.vt .cell-act{ white-space:nowrap; }
+.vt .cell-act .vbtn{ margin-right:6px; }
+.vt .fl-l{ color:#e5484d; font-weight:700; }
+.vt .fl-h{ color:#2e7aa8; font-weight:700; }
+.pgr{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:14px; font-size:12.5px; color:var(--muted,#888); }
+.pgr button{ padding:6px 12px; border:1px solid var(--line,#e5e5ee); border-radius:8px; background:var(--card,#fff); color:var(--ink-2,#444); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
+.pgr button:disabled{ opacity:.45; cursor:default; }
+.pgr button:not(:disabled):hover{ border-color:var(--accent-line,#ddd6f6); color:var(--accent-d,#5848c2); }
+.empty{ padding:36px 10px; text-align:center; color:var(--muted,#888); font-size:13px; }
+/* 뷰 툴바·폼 */
+.vw-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; }
+.vw-toolbar input[type=text]{ flex:1; min-width:160px; }
+#viewHost input[type=text], #viewHost input[type=date], #viewHost input[type=password], #viewHost select, #viewHost textarea{
+  padding:8px 10px; border:1px solid var(--line,#e5e5ee); border-radius:8px; font:inherit; font-size:13px; background:var(--card,#fff); color:var(--ink,#222); }
+#viewHost input:focus, #viewHost select:focus, #viewHost textarea:focus{ outline:none; border-color:var(--accent,#6a5bd4); }
+.vbtn{ padding:8px 14px; border:0; border-radius:8px; background:var(--accent,#6a5bd4); color:#fff; font:inherit; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.vbtn:hover{ background:var(--accent-d,#5848c2); }
+.vbtn:disabled{ opacity:.55; cursor:default; }
+.vbtn.ghost{ background:var(--card,#fff); color:var(--ink-2,#444); border:1px solid var(--line,#e5e5ee); font-weight:600; }
+.vbtn.ghost:hover{ background:var(--accent-soft,#eeebfb); color:var(--accent-dd,#4536a3); border-color:var(--accent-line,#ddd6f6); }
+.vbtn.danger{ background:#fdeaea; color:#c73e42; }
+.vbtn.danger:hover{ background:#fbdcdc; }
+.vbtn.sm{ padding:5px 10px; font-size:12px; }
+.vw-form{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+.vw-form-t{ font-size:14.5px; font-weight:800; color:var(--ink,#222); margin:0 0 12px; }
+.vf-field{ display:flex; flex-direction:column; gap:4px; }
+.vf-field label{ font-size:11.5px; font-weight:700; color:var(--muted,#888); }
+.vf-field.grow{ flex:1; min-width:220px; }
+.vf-field.grow textarea{ width:100%; resize:vertical; }
+.vw-picker{ display:flex; gap:6px; }
+.vw-picker input{ width:150px; }
+.vw-picker select{ max-width:230px; }
+.vw-datelabel{ font-size:13px; font-weight:700; color:var(--ink-2,#444); margin-left:4px; }
+/* 탭 */
+.vtabs{ display:flex; gap:6px; margin-bottom:12px; }
+.vtab{ padding:7px 14px; border:1px solid var(--line,#e5e5ee); border-radius:999px; background:var(--card,#fff); color:var(--muted,#888); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+.vtab.on{ background:var(--accent-soft,#eeebfb); border-color:var(--accent-line,#ddd6f6); color:var(--accent-dd,#4536a3); }
+/* 상태 뱃지 확장 (기존 .st 재사용) */
+.st.done{ background:#e9f6ee; color:#1f8a4c; }
+.st.due{ background:#fdf0d9; color:#b9791b; }
+.st.cancel{ background:#eef1ee; color:var(--muted,#888); }
+.st.warn{ background:#fdeaea; color:#e5484d; }
+/* 통계 카드 */
+.vcards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+.vcards.cols4{ grid-template-columns:repeat(4,1fr); margin-bottom:0; }
+.vcard{ padding:16px; border:1px solid var(--line,#e5e5ee); border-radius:12px; background:var(--card,#fff); }
+.vcards.cols4 .vcard{ border:none; padding:6px 2px; }
+.vcard .vn{ font-size:22px; font-weight:800; color:var(--ink,#222); }
+.vcard .vn.warn{ color:#e5484d; }
+.vcard .vl{ font-size:11.5px; color:var(--muted,#888); margin-top:3px; }
+/* 환자 상세(EMR) */
+.pd-head{ margin:14px 0 4px; }
+.pd-name{ font-size:17px; font-weight:800; color:var(--ink,#222); }
+.pd-meta{ font-size:12.5px; color:var(--muted,#888); margin-top:3px; }
+.pd-memo{ font-size:12.5px; color:var(--ink-2,#444); background:var(--accent-soft,#eeebfb); border-radius:8px; padding:8px 10px; margin-top:8px; }
+.emr-sec{ margin-top:18px; }
+.emr-sec h3{ font-size:13.5px; font-weight:800; color:var(--accent-dd,#4536a3); margin:0 0 6px; }
+/* 내 정보 */
+.kv-row{ display:flex; justify-content:space-between; padding:9px 2px; border-bottom:1px solid var(--line-2,#f1f1f6); font-size:13px; }
+.kv-row:last-child{ border-bottom:none; }
+.kv-k{ color:var(--muted,#888); font-weight:600; }
+.kv-v{ color:var(--ink,#222); font-weight:700; }
+/* C 안내 패널 */
+.etc-card{ text-align:center; padding:44px 24px; }
+.etc-ico{ width:52px; height:52px; margin:0 auto 14px; border-radius:14px; background:var(--accent-soft,#eeebfb); display:grid; place-items:center; }
+.etc-ico svg{ width:26px; height:26px; stroke:var(--accent-d,#5848c2); fill:none; stroke-width:1.7; }
+.etc-t{ font-size:16px; font-weight:800; color:var(--ink,#222); }
+.etc-d{ font-size:13px; color:var(--muted,#888); margin:8px auto 14px; max-width:520px; line-height:1.6; }
+.etc-links{ display:flex; justify-content:center; gap:14px; }
 </style>
 </head>
 <body data-role="nurse">
@@ -43,17 +127,17 @@
     </div>
 
     <nav class="sb-nav">
-      <a class="nav-i on" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>환자 검색</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/><path d="M12 7v4M10 9h4"/></svg>입·퇴원 관리</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg>진료 일정</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg>투약 관리</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6M11 12h2"/></svg>검사 / 처치 관리</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>간호 기록</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>서류 요청 관리</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg>공지 / 메모</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>통계 / 리포트</a>
-      <a class="nav-i" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2 2 2 0 11-4 0 1.7 1.7 0 00-2.9-1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00-1.2-2.9 2 2 0 010-4 1.7 1.7 0 001.2-2.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 002.9-1.2 2 2 0 014 0 1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 001.2 2.9 2 2 0 010 4 1.7 1.7 0 00-1.2 1z"/></svg>설정</a>
+      <a class="nav-i on" data-view="dashboard" href="#view-dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</a>
+      <a class="nav-i" data-view="search" href="#view-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>환자 검색</a>
+      <a class="nav-i" data-view="admission" href="#view-admission"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/><path d="M12 7v4M10 9h4"/></svg>입·퇴원 관리</a>
+      <a class="nav-i" data-view="schedule" href="#view-schedule"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg>진료 일정</a>
+      <a class="nav-i" data-view="meds" href="#view-meds"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg>투약 관리</a>
+      <a class="nav-i" data-view="tests" href="#view-tests"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6M11 12h2"/></svg>검사 / 처치 관리</a>
+      <a class="nav-i" data-view="notes" href="#view-notes"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>간호 기록</a>
+      <a class="nav-i" data-view="docs" href="#view-docs"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>서류 요청 관리</a>
+      <a class="nav-i" data-view="memo" href="#view-memo"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg>공지 / 메모</a>
+      <a class="nav-i" data-view="stats" href="#view-stats"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>통계 / 리포트</a>
+      <a class="nav-i" data-view="settings" href="#view-settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2 2 2 0 11-4 0 1.7 1.7 0 00-2.9-1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00-1.2-2.9 2 2 0 010-4 1.7 1.7 0 001.2-2.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 002.9-1.2 2 2 0 014 0 1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 001.2 2.9 2 2 0 010 4 1.7 1.7 0 00-1.2 1z"/></svg>설정</a>
     </nav>
 
     <div class="sb-card secure-card">
@@ -104,22 +188,22 @@
     <div class="block">
       <div class="sec-t"><h2>간호 업무 바로가기</h2></div>
       <div class="quick">
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><h3>환자 상태 기록</h3><p>바이탈/통증 기록</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><h3>투약 관리</h3><p>투약 스케줄/이력</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6"/></svg></span><h3>검사 관리</h3><p>검사 예약/결과</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z"/><path d="M14 6l3 3"/></svg></span><h3>처치 관리</h3><p>처치/시술 기록</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg></span><h3>입·퇴원 관리</h3><p>입원/퇴원/전실</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6"/></svg></span><h3>간호 기록 작성</h3><p>간호 노트/경과</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.5-4 4 1 5.5L12 20l-5 .5 1-5.5-4-4 5.5-.5z"/></svg></span><h3>낙상 관리</h3><p>낙상 평가/예방</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9l3 3-3 3M13 15h3"/></svg></span><h3>간호 계획</h3><p>간호 계획/평가</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M7 9v5c0 1.5 5 3 5 3s5-1.5 5-3V9"/></svg></span><h3>교육 자료</h3><p>환자 교육 자료</p></a>
-        <a class="q-card" href="#"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg></span><h3>공지 / 메모</h3><p>병동 공지/메모</p></a>
+        <a class="q-card" href="#view-notes"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><h3>환자 상태 기록</h3><p>바이탈/통증 기록</p></a>
+        <a class="q-card" href="#view-meds"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><h3>투약 관리</h3><p>투약 스케줄/이력</p></a>
+        <a class="q-card" href="#view-tests"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/><path d="M9 7h6"/></svg></span><h3>검사 관리</h3><p>검사 예약/결과</p></a>
+        <a class="q-card" href="#view-tests"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z"/><path d="M14 6l3 3"/></svg></span><h3>처치 관리</h3><p>처치/시술 기록</p></a>
+        <a class="q-card" href="#view-admission"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg></span><h3>입·퇴원 관리</h3><p>입원/퇴원/전실</p></a>
+        <a class="q-card" href="#view-notes"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6"/></svg></span><h3>간호 기록 작성</h3><p>간호 노트/경과</p></a>
+        <a class="q-card" href="#view-etc-fall"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.5-4 4 1 5.5L12 20l-5 .5 1-5.5-4-4 5.5-.5z"/></svg></span><h3>낙상 관리</h3><p>낙상 평가/예방</p></a>
+        <a class="q-card" href="#view-etc-plan"><span class="q-ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9l3 3-3 3M13 15h3"/></svg></span><h3>간호 계획</h3><p>간호 계획/평가</p></a>
+        <a class="q-card" href="#view-etc-edu"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M7 9v5c0 1.5 5 3 5 3s5-1.5 5-3V9"/></svg></span><h3>교육 자료</h3><p>환자 교육 자료</p></a>
+        <a class="q-card" href="#view-memo"><span class="q-ico"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0116 0v5l2 3H2l2-3z"/><path d="M9 19a3 3 0 006 0"/></svg></span><h3>공지 / 메모</h3><p>병동 공지/메모</p></a>
       </div>
     </div>
 
     <!-- 오늘 담당 환자 -->
     <div class="block card" id="patientsCard">
-      <div class="sec-t"><h2>오늘 담당 환자 <span class="muted" id="patientCount" style="font-weight:600">(12명)</span></h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="sec-t"><h2>오늘 담당 환자 <span class="muted" id="patientCount" style="font-weight:600">(12명)</span></h2><a class="link" href="#view-admission">전체 보기 <span class="arr">›</span></a></div>
       <div class="p-item">
         <span class="p-ava" style="background:#6a5bd4">김</span>
         <div class="p-b"><div class="p-n">김철수 (M/45)</div><div class="p-m">1205호 · 고혈압, 골다공증</div></div>
@@ -150,7 +234,7 @@
     <!-- 일정 + 서류 요청 -->
     <div class="block cards-2">
       <div class="card">
-        <div class="sec-t"><h2>오늘 일정</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="sec-t"><h2>오늘 일정</h2><a class="link" href="#view-schedule">전체 보기 <span class="arr">›</span></a></div>
         <div class="tl-t" id="todayLabel" style="margin-bottom:10px">2025.05.28 (수)</div>
         <div class="tl-row"><span class="dot"></span><span class="h">09:00</span><span class="l">병동 라운딩</span><span class="rm" style="margin-left:auto;color:var(--muted);font-size:12px">홍길동 의사</span></div>
         <div class="tl-row"><span class="dot"></span><span class="h">10:00</span><span class="l">정기 투약 관리</span></div>
@@ -161,7 +245,7 @@
       </div>
 
       <div class="card" id="docReqCard">
-        <div class="sec-t"><h2>서류 요청 현황</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+        <div class="sec-t"><h2>서류 요청 현황</h2><a class="link" href="#view-docs">전체 보기 <span class="arr">›</span></a></div>
         <div class="row-lc"><span class="lab">진단서 요청</span><span class="c">3건</span></div>
         <div class="row-lc"><span class="lab">소견서 요청</span><span class="c">2건</span></div>
         <div class="row-lc"><span class="lab">의무기록 사본 요청</span><span class="c">1건</span></div>
@@ -196,7 +280,7 @@
 
     <!-- 주요 알림 -->
     <div class="card" id="alertsCard">
-      <div class="sec-t"><h2>주요 알림</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="sec-t"><h2>주요 알림</h2><a class="link" href="#view-schedule">전체 보기 <span class="arr">›</span></a></div>
       <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="13" height="8" rx="4" transform="rotate(-30 8.5 13)"/><path d="M11 9l4 7"/></svg></span><span class="al-l">투약 알림</span><span class="al-c">3건</span></div>
       <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><path d="M9 3h6v4l4 9a4 4 0 01-3.6 5.7H8.6A4 4 0 015 16l4-9z"/></svg></span><span class="al-l">검사 결과 확인</span><span class="al-c">4건</span></div>
       <div class="al-row"><span class="al-ic"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z"/></svg></span><span class="al-l">처치 예정</span><span class="al-c">2건</span></div>
@@ -210,12 +294,12 @@
       <div class="memo-row"><span class="memo-t">09:15</span><div class="memo-b"><div class="mt">김철수 환자 혈압 체크 후 보고</div><div class="mw">홍길동 의사</div></div></div>
       <div class="memo-row"><span class="memo-t">08:50</span><div class="memo-b"><div class="mt">박영희 환자 퇴원 교육 자료 준비</div><div class="mw">홍길동 의사</div></div></div>
       <div class="memo-row"><span class="memo-t">08:30</span><div class="memo-b"><div class="mt">병동 소독 점검 완료</div><div class="mw">관리자</div></div></div>
-      <div class="docs-foot" style="margin-top:8px"><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="docs-foot" style="margin-top:8px"><a class="link" href="#view-memo">전체 보기 <span class="arr">›</span></a></div>
     </div>
 
     <!-- 병동 현황 -->
     <div class="card">
-      <div class="sec-t"><h2>병동 현황</h2><a class="link" href="#">더 보기 <span class="arr">›</span></a></div>
+      <div class="sec-t"><h2>병동 현황</h2><a class="link" href="#view-admission">더 보기 <span class="arr">›</span></a></div>
       <div class="ward-grid" id="wardGrid">
         <div class="ward-c"><span class="wi"><svg viewBox="0 0 24 24"><path d="M4 21v-6a4 4 0 014-4h8a4 4 0 014 4v6"/><circle cx="12" cy="6" r="3"/></svg></span><div class="wn">24명</div><div class="wl">입원 환자</div></div>
         <div class="ward-c"><span class="wi"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 14l2 2 3-3"/></svg></span><div class="wn">2명</div><div class="wl">퇴원 예정</div></div>
@@ -234,7 +318,7 @@
 
     <!-- 최근 기록 -->
     <div class="card" id="recentCard">
-      <div class="sec-t"><h2>최근 기록</h2><a class="link" href="#">전체 보기 <span class="arr">›</span></a></div>
+      <div class="sec-t"><h2>최근 기록</h2><a class="link" href="#view-notes">전체 보기 <span class="arr">›</span></a></div>
       <div class="rec2-row"><span class="dot"></span><span class="lb">환자 활력징후 기록</span><span class="rm">1205호</span></div>
       <div class="rec2-row"><span class="dot"></span><span class="lb">환자 투약 후 기록</span><span class="rm">1206호</span></div>
       <div class="rec2-row"><span class="dot"></span><span class="lb">환자 처치 기록</span><span class="rm">1207호</span></div>
@@ -265,6 +349,6 @@
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="../js/auth.js?v=1"></script>
 <script src="../js/ai.js?v=8"></script>
-<script src="../js/nurse.js?v=1"></script>
+<script src="../js/nurse.js?v=2"></script>
 </body>
 </html>
