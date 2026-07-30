@@ -58,6 +58,33 @@
     if (em) em.textContent = displayName(me);
   }
 
+  function confirmLogout(onYes) {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,30,20,.45);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.25);padding:26px 24px 20px;width:100%;max-width:320px;text-align:center;font-family:inherit;';
+    card.innerHTML = '<div style="font-size:16px;font-weight:800;color:#1f2d27;margin-bottom:8px;">로그아웃</div>'
+      + '<div style="font-size:13.5px;color:#5f7468;margin-bottom:20px;">정말 로그아웃하시겠습니까?</div>';
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;';
+    var no = document.createElement('button');
+    no.textContent = '취소';
+    no.style.cssText = 'flex:1;border:1px solid #e6ece6;background:#f6f9f6;color:#3c5a47;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 0;border-radius:11px;cursor:pointer;';
+    var yes = document.createElement('button');
+    yes.textContent = '로그아웃';
+    yes.style.cssText = 'flex:1;border:none;background:linear-gradient(135deg,#4aab61,#2f8347);color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 0;border-radius:11px;cursor:pointer;';
+    function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    no.addEventListener('click', close);
+    yes.addEventListener('click', function () { close(); onYes(); });
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    document.addEventListener('keydown', onKey);
+    row.appendChild(no); row.appendChild(yes);
+    card.appendChild(row); ov.appendChild(card);
+    document.body.appendChild(ov);
+    no.focus();
+  }
+
   function addLogout() {
     var top = document.querySelector('.rail-top');
     if (!top) return;
@@ -67,7 +94,9 @@
     b.setAttribute('aria-label', '로그아웃');
     b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
     b.addEventListener('click', function () {
-      fetch('/api/logout', { method: 'POST' }).then(function () { location.href = '../../index.html'; });
+      confirmLogout(function () {
+        fetch('/api/logout', { method: 'POST' }).then(function () { location.href = '../../index.html'; });
+      });
     });
     top.insertBefore(b, top.firstChild);
   }
