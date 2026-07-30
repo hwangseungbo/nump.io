@@ -114,6 +114,13 @@
     keys.forEach(function (k, i) {
       if (cells[i] && alerts[k] != null) cells[i].textContent = alerts[k] + '건';
     });
+    var defs = [['med', '투약 알림', '#view-meds'], ['lab', '검사 결과 확인', '#view-tests'],
+                ['care', '처치 예정', '#view-schedule'], ['admission', '입·퇴원 예정', '#view-admission'],
+                ['docs', '서류 요청', '#view-docs']];
+    bellItems = [];
+    defs.forEach(function (d) {
+      if (alerts[d[0]] > 0) bellItems.push({ t: d[1] + ' ' + alerts[d[0]] + '건', h: d[2] });
+    });
   }
 
   /* ---------- 메모 / 전달 사항 ---------- */
@@ -1163,6 +1170,54 @@
     initViews(); // P5 뷰 전환 플럼빙
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  /* ---------- 알림 벨 드롭다운 (rail-top) ---------- */
+  var bellItems = [];
+  function initBell() {
+    var btn = document.querySelector('.rail-top .icon-btn');
+    if (!btn) return;
+    var wrap = btn.parentElement;
+    wrap.style.position = 'relative';
+    var panel = null;
+    function closeBell() { if (panel) { panel.remove(); panel = null; } }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (panel) { closeBell(); return; }
+      panel = document.createElement('div');
+      panel.style.cssText = 'position:absolute;top:calc(100% + 8px);right:0;width:272px;background:#fff;border:1px solid #e6ece6;border-radius:14px;box-shadow:0 18px 44px rgba(20,45,30,.18);z-index:1500;overflow:hidden;';
+      var head = document.createElement('div');
+      head.style.cssText = 'font-size:12.5px;font-weight:800;color:#1f2d27;padding:11px 14px;border-bottom:1px solid #eef2ee;';
+      head.textContent = '알림';
+      panel.appendChild(head);
+      if (!bellItems.length) {
+        var em = document.createElement('div');
+        em.style.cssText = 'padding:16px 14px;font-size:12.5px;color:#7f8e85;';
+        em.textContent = '새 알림이 없습니다.';
+        panel.appendChild(em);
+      }
+      bellItems.forEach(function (it) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;font-size:12.5px;font-weight:600;color:#364a3f;cursor:pointer;border-bottom:1px solid #f4f7f4;';
+        row.addEventListener('mouseenter', function () { row.style.background = '#f6faf7'; });
+        row.addEventListener('mouseleave', function () { row.style.background = ''; });
+        var t = document.createElement('span'); t.textContent = it.t;
+        var arr = document.createElement('span'); arr.textContent = '›';
+        arr.style.cssText = 'color:#9db3a5;font-weight:700;';
+        row.appendChild(t); row.appendChild(arr);
+        row.addEventListener('click', function () { closeBell(); if (it.h) location.hash = it.h; });
+        panel.appendChild(row);
+      });
+      wrap.appendChild(panel);
+    });
+    document.addEventListener('click', function (e) { if (panel && !panel.contains(e.target)) closeBell(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeBell(); });
+  }
+
+  function initRailButtons() {
+    initBell();
+    var newBtn = document.querySelector('.rail-top .btn-cta');
+    if (newBtn) newBtn.addEventListener('click', function () { toast('환자 등록은 관리자 계정에서 할 수 있습니다'); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { init(); initRailButtons(); });
+  else { init(); initRailButtons(); }
 })();
