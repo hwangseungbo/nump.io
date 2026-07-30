@@ -628,6 +628,10 @@ async function apiCreateAppointment(req, res) {
   const db = getPool();
   const p = await myPatientRow(db, me);
   if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
+  const dup = await db.query(
+    `SELECT 1 FROM appointments WHERE patient_id=$1 AND scheduled_at=$2 AND status='scheduled'`, [p.id, when]);
+  if (dup.rows.length)
+    return sendJson(res, 409, { error: '같은 시간에 이미 예약이 있습니다. 다른 시간을 선택해 주세요.' });
   const d = await db.query(`SELECT id, profile FROM users WHERE role='doctor' AND active ORDER BY id LIMIT 1`);
   const doctorId = d.rows.length ? d.rows[0].id : null;
   const department = d.rows.length ? (d.rows[0].profile && d.rows[0].profile.department) || null : null;

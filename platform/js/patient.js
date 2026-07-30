@@ -350,7 +350,8 @@
         submit.disabled = false;
         if (!res.ok) {
           console.warn('[patient] POST /api/appointments ' + res.status);
-          if (res.status === 400) showErr('과거 날짜이거나 입력 형식이 올바르지 않습니다.');
+          if (res.body && res.body.error) showErr(res.body.error);
+          else if (res.status === 400) showErr('과거 날짜이거나 입력 형식이 올바르지 않습니다.');
           else if (res.status === 401) showErr('로그인이 필요합니다.');
           else showErr('서버 오류로 예약을 신청하지 못했습니다 (' + res.status + ')');
           return;
