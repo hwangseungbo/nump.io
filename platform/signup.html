@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basil Nexus · 회원가입</title>
+<link rel="icon" href="../assets/favicon.ico" sizes="any" />
+<meta name="theme-color" content="#2f9e57" />
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+  :root{ --accent:#2f9e57; --accent-d:#1f8a4c; --accent-dd:#176b3a; --ink:#1f2d27; --muted:#7f8e85; --line:#e6ece6; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:'Pretendard','Apple SD Gothic Neo',sans-serif; min-height:100vh;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    background:linear-gradient(160deg,#eef4ec 0%, #e3efe6 55%, #d9eadf 100%); color:var(--ink); }
+  .card{ width:100%; max-width:420px; background:#fff; border:1px solid var(--line);
+    border-radius:22px; box-shadow:0 20px 60px rgba(40,80,55,.12); padding:36px 34px 30px; }
+  .brand{ display:flex; align-items:center; gap:11px; justify-content:center; margin-bottom:6px; }
+  .brand img{ height:44px; }
+  .brand .bt{ font-size:21px; font-weight:800; letter-spacing:-.3px; }
+  .sub{ text-align:center; font-size:12.5px; color:var(--muted); margin-bottom:22px; }
+  label{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin:13px 0 6px; }
+  input{ width:100%; border:1px solid var(--line); border-radius:12px; padding:12px 14px;
+    font-family:inherit; font-size:14px; outline:none; transition:border .15s; background:#fafcfa; }
+  input:focus{ border-color:var(--accent); background:#fff; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > div{ flex:1; }
+  .sexes{ display:flex; gap:8px; }
+  .sexes button{ flex:1; border:1px solid var(--line); background:#fafcfa; border-radius:12px;
+    padding:11px 0; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--muted); cursor:pointer; }
+  .sexes button.on{ border-color:var(--accent); background:#eef8f1; color:var(--accent-dd); }
+  .hint{ margin-top:16px; background:#f2f8f3; border:1px solid #dcebe0; color:#4a6b56;
+    font-size:12px; line-height:1.55; padding:10px 13px; border-radius:10px; }
+  .btn{ width:100%; margin-top:20px; background:linear-gradient(135deg,#4aab61,#2f8347); color:#fff;
+    border:none; border-radius:12px; padding:13px; font-family:inherit; font-size:14.5px; font-weight:700;
+    cursor:pointer; box-shadow:0 8px 20px rgba(47,131,71,.28); }
+  .btn:disabled{ opacity:.6; cursor:default; }
+  .err{ display:none; margin-top:14px; background:#fdeaea; border:1px solid #f5c2c2; color:#c0392b;
+    font-size:12.5px; padding:10px 13px; border-radius:10px; }
+  .ok{ display:none; margin-top:14px; background:#eef8f1; border:1px solid #bfe3cb; color:#1f8a4c;
+    font-size:12.5px; font-weight:600; padding:10px 13px; border-radius:10px; }
+  .foot{ margin-top:20px; text-align:center; font-size:12px; color:var(--muted); }
+  .foot a{ color:var(--accent-d); text-decoration:none; font-weight:600; }
+</style>
+</head>
+<body>
+<form class="card" id="signupForm" autocomplete="on">
+  <div class="brand">
+    <img src="../assets/logo-mark.png" alt="" />
+    <span class="bt">Basil Nexus</span>
+  </div>
+  <div class="sub">환자 회원가입 · 의료진 계정은 병원에서 발급됩니다</div>
+
+  <label for="u">아이디</label>
+  <input id="u" name="username" type="text" placeholder="4~20자 영문 소문자·숫자" required autofocus autocomplete="username" />
+  <div class="row2">
+    <div>
+      <label for="p">비밀번호</label>
+      <input id="p" name="password" type="password" placeholder="8자 이상" required autocomplete="new-password" />
+    </div>
+    <div>
+      <label for="p2">비밀번호 확인</label>
+      <input id="p2" name="password2" type="password" placeholder="다시 입력" required autocomplete="new-password" />
+    </div>
+  </div>
+  <label for="nm">이름</label>
+  <input id="nm" name="name" type="text" placeholder="실명을 입력하세요" required autocomplete="name" />
+  <div class="row2">
+    <div>
+      <label for="bd">생년월일</label>
+      <input id="bd" name="birth_date" type="date" required autocomplete="bday" />
+    </div>
+    <div>
+      <label>성별</label>
+      <div class="sexes" id="sexes">
+        <button type="button" data-sex="M">남</button>
+        <button type="button" data-sex="F">여</button>
+      </div>
+    </div>
+  </div>
+  <label for="ph">휴대폰 번호</label>
+  <input id="ph" name="phone" type="tel" placeholder="010-0000-0000" required autocomplete="tel" />
+
+  <div class="hint">저희 병원 진료 이력이 있는 경우, 이름·생년월일·휴대폰 번호가 일치하면
+    기존 진료기록이 새 계정에 자동으로 연결됩니다.</div>
+
+  <div class="err" id="err"></div>
+  <div class="ok" id="okMsg"></div>
+  <button class="btn" id="btn" type="submit">가입하기</button>
+
+  <div class="foot">이미 계정이 있으신가요? <a href="login.html">로그인</a></div>
+</form>
+<script>
+(function(){
+  var form = document.getElementById('signupForm');
+  var err = document.getElementById('err');
+  var okMsg = document.getElementById('okMsg');
+  var btn = document.getElementById('btn');
+  var sex = null;
+
+  // 이미 로그인돼 있으면 자기 대시보드로
+  var ROLE_HOME = { doctor:'doctor/index.html', nurse:'nurse/index.html', patient:'patient/index.html', admin:'admin/index.html' };
+  fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+    if (me && ROLE_HOME[me.role]) location.href = ROLE_HOME[me.role];
+  }).catch(function(){});
+
+  document.getElementById('sexes').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-sex]');
+    if (!b) return;
+    sex = b.getAttribute('data-sex');
+    this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x === b); });
+  });
+
+  function fail(msg){
+    err.textContent = msg; err.style.display = 'block';
+    btn.disabled = false; btn.textContent = '가입하기';
+  }
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    err.style.display = 'none'; okMsg.style.display = 'none';
+    if (form.password.value !== form.password2.value) return fail('비밀번호가 서로 다릅니다.');
+    if (!sex) return fail('성별을 선택해 주세요.');
+    btn.disabled = true; btn.textContent = '가입 중…';
+    fetch('/api/signup', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: form.username.value.trim(),
+        password: form.password.value,
+        name: form.name.value.trim(),
+        birth_date: form.birth_date.value,
+        phone: form.phone.value.trim(),
+        sex: sex
+      })
+    }).then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+      .then(function(x){
+        if (!x.ok) return fail((x.d && x.d.error) || '가입에 실패했습니다.');
+        okMsg.textContent = x.d.linked
+          ? '가입 완료! 기존 진료기록이 계정에 연결되었습니다. 잠시 후 대시보드로 이동합니다.'
+          : '가입이 완료되었습니다. 잠시 후 대시보드로 이동합니다.';
+        okMsg.style.display = 'block';
+        btn.textContent = '가입 완료';
+        setTimeout(function(){ location.href = 'patient/index.html'; }, 1600);
+      })
+      .catch(function(){ fail('서버에 연결할 수 없습니다.'); });
+  });
+})();
+</script>
+</body>
+</html>

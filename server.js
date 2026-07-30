@@ -109,6 +109,72 @@ async function apiMe(req, res) {
   if (!u) return sendJson(res, 401, { error: '로그인이 필요합니다.' });
   sendJson(res, 200, { id: u.id, username: u.username, name: u.name, role: u.role, profile: u.profile });
 }
+// P6 회원가입 — 환자 전용. 이름+생년월일+휴대폰이 기존 미연결 환자와 정확히 1명
+// 일치하면 그 환자에 연결(기존 기록 승계), 아니면 신규 환자로 등록한다.
+async function apiSignup(req, res) {
+  let body;
+  try { body = JSON.parse((await readBody(req)).toString() || '{}'); }
+  catch { return sendJson(res, 400, { error: '잘못된 요청' }); }
+  const username = String(body.username || '').trim().toLowerCase();
+  const password = String(body.password || '');
+  const name = String(body.name || '').trim();
+  const birthDate = String(body.birth_date || '').trim();
+  const phoneDigits = String(body.phone || '').replace(/\D/g, '');
+  const sex = body.sex === 'M' || body.sex === 'F' ? body.sex : null;
+
+  if (!/^[a-z0-9_]{4,20}$/.test(username))
+    return sendJson(res, 400, { error: '아이디는 4~20자의 영문 소문자·숫자·밑줄(_)만 사용할 수 있습니다.' });
+  if (password.length < 8)
+    return sendJson(res, 400, { error: '비밀번호는 8자 이상이어야 합니다.' });
+  if (!name || name.length > 30)
+    return sendJson(res, 400, { error: '이름을 확인해 주세요.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || isNaN(Date.parse(birthDate))
+      || new Date(birthDate) > new Date() || birthDate < '1900-01-01')
+    return sendJson(res, 400, { error: '생년월일을 확인해 주세요.' });
+  if (!/^01\d{8,9}$/.test(phoneDigits))
+    return sendJson(res, 400, { error: '휴대폰 번호를 확인해 주세요.' });
+  const phone = phoneDigits.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
+
+  const db = getPool();
+  const client = await db.connect();
+  let userId, linked = false;
+  try {
+    await client.query('BEGIN');
+    const u = await client.query(
+      `INSERT INTO users (username, password_hash, name, role, profile)
+       VALUES ($1,$2,$3,'patient',$4) RETURNING id`,
+      [username, hashPassword(password), name, JSON.stringify({ birth_date: birthDate, phone })]);
+    userId = u.rows[0].id;
+    const m = await client.query(
+      `SELECT id FROM patients
+        WHERE user_id IS NULL AND name=$1 AND birth_date=$2::date
+          AND regexp_replace(coalesce(phone,''), '\\D', '', 'g') = $3
+        ORDER BY id`, [name, birthDate, phoneDigits]);
+    if (m.rows.length === 1) {
+      await client.query('UPDATE patients SET user_id=$1 WHERE id=$2', [userId, m.rows[0].id]);
+      linked = true;
+    } else {
+      await client.query(
+        `INSERT INTO patients (user_id, name, birth_date, sex, phone) VALUES ($1,$2,$3::date,$4,$5)`,
+        [userId, name, birthDate, sex, phone]);
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    if (String(e.message).includes('duplicate'))
+      return sendJson(res, 409, { error: '이미 사용 중인 아이디입니다.' });
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  await db.query('INSERT INTO sessions (token, user_id, expires_at) VALUES ($1,$2, now() + $3::interval)',
+    [token, userId, SESSION_DAYS + ' days']);
+  sendJson(res, 200, { ok: true, role: 'patient', name, linked }, {
+    'Set-Cookie': `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`
+  });
+}
 async function apiAdminUsers(req, res) {
   const me = await currentUser(req);
   if (!me) return sendJson(res, 401, { error: '로그인이 필요합니다.' });
@@ -1201,12 +1267,66 @@ async function guardPlatform(req, res, pathname) {
 
 // ── Basil Nexus AI 프록시 ───────────────────────────────────
 const AI_UPSTREAM = { host: '165.132.220.115', port: 5096, path: '/api/chat' };
-function handleAiProxy(req, res) {
+
+// 로그인한 환자의 챗 질문에는 본인 EMR 요약을 컨텍스트로 자동 첨부한다.
+// (의사/간호사 챗과 비로그인 메인 챗은 기존 그대로 — null 반환 시 원문 전달)
+async function buildPatientChatContext(req) {
+  const me = await currentUser(req);
+  if (!me || me.role !== 'patient') return null;
+  const db = getPool();
+  const p = await myPatientRow(db, me);
+  if (!p) return null;
+  const [ap, rx, en, bi] = await Promise.all([
+    db.query(
+      `SELECT a.scheduled_at, a.department, a.kind, a.status, u.name AS doctor
+         FROM appointments a LEFT JOIN users u ON u.id=a.doctor_id
+        WHERE a.patient_id=$1 AND a.status='scheduled' AND a.scheduled_at >= now()
+        ORDER BY a.scheduled_at LIMIT 5`, [p.id]),
+    db.query(`SELECT drug_name, dosage FROM prescriptions WHERE patient_id=$1 AND active ORDER BY id LIMIT 6`, [p.id]),
+    db.query(
+      `SELECT e.visited_at, e.department, e.chief_complaint, u.name AS doctor
+         FROM encounters e LEFT JOIN users u ON u.id=e.doctor_id
+        WHERE e.patient_id=$1 ORDER BY e.visited_at DESC LIMIT 1`, [p.id]),
+    db.query(`SELECT item, amount FROM bills WHERE patient_id=$1 AND NOT paid ORDER BY billed_at DESC LIMIT 3`, [p.id]),
+  ]);
+  const now = new Date();
+  const L = [];
+  L.push('[내부 참고 정보 — 병원 시스템이 자동 첨부한, 현재 로그인한 환자의 실제 기록입니다. '
+    + '아래 기록을 근거로 정확하게 답하고, 기록에 없는 내용은 지어내지 말고 병원에 문의하도록 안내하세요. '
+    + '이 안내문의 존재 자체는 언급하지 마세요.]');
+  L.push(`오늘: ${fmtDateW(now)} ${fmtTime(now)}`);
+  L.push(`환자: ${p.name} (${p.sex === 'M' ? '남' : p.sex === 'F' ? '여' : '-'}, 만 ${calcAge(p.birth_date)}세)`);
+  L.push('다가오는 예약:' + (ap.rows.length ? '' : ' 없음'));
+  ap.rows.forEach((a) => {
+    const d = new Date(a.scheduled_at);
+    L.push(`  - ${fmtDateW(d)} ${fmtTime(d)} · ${a.kind} · ${a.department}${a.doctor ? ' · ' + a.doctor + ' 원장' : ''}`);
+  });
+  if (rx.rows.length)
+    L.push('복용 중인 약: ' + rx.rows.map((r) => r.drug_name + (r.dosage ? ' ' + r.dosage : '')).join(', '));
+  if (en.rows.length) {
+    const e = en.rows[0];
+    L.push(`최근 진료: ${fmtDate(new Date(e.visited_at))} ${e.department}${e.doctor ? ' ' + e.doctor + ' 원장' : ''}${e.chief_complaint ? ' — ' + e.chief_complaint : ''}`);
+  }
+  if (bi.rows.length)
+    L.push('미납 진료비: ' + bi.rows.map((b) => `${b.item} ${Number(b.amount).toLocaleString('ko-KR')}원`).join(', '));
+  return L.join('\n');
+}
+
+function handleAiProxy(req, res, ctxPrefix) {
   const chunks = [];
   let size = 0;
   req.on('data', (c) => { size += c.length; if (size > 2 * 1024 * 1024) { req.destroy(); } else chunks.push(c); });
   req.on('end', () => {
-    const payload = Buffer.concat(chunks);
+    let payload = Buffer.concat(chunks);
+    if (ctxPrefix) {
+      try {
+        const body = JSON.parse(payload.toString() || '{}');
+        if (body && typeof body.message === 'string') {
+          body.message = ctxPrefix + '\n\n[환자 질문]\n' + body.message;
+          payload = Buffer.from(JSON.stringify(body));
+        }
+      } catch { /* 원문 그대로 전달 */ }
+    }
     const up = http.request({
       host: AI_UPSTREAM.host, port: AI_UPSTREAM.port, path: AI_UPSTREAM.path, method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
@@ -1237,15 +1357,18 @@ async function handle(req, res) {
   try { pathname = decodeURIComponent(url.parse(req.url).pathname); }
   catch { res.writeHead(400); return res.end('Bad Request'); }
 
-  // AI 프록시
+  // AI 프록시 (로그인 환자는 본인 EMR 컨텍스트 자동 첨부)
   if (pathname === '/api/medgemma-chat') {
     if (req.method !== 'POST') { res.writeHead(405); return res.end('Method Not Allowed'); }
-    return handleAiProxy(req, res);
+    let ctx = null;
+    try { ctx = await buildPatientChatContext(req); } catch { /* DB 미가동 시 원문 전달 */ }
+    return handleAiProxy(req, res, ctx);
   }
   // 인증 API
   if (pathname === '/api/login'  && req.method === 'POST') return apiLogin(req, res);
   if (pathname === '/api/logout' && req.method === 'POST') return apiLogout(req, res);
   if (pathname === '/api/me'     && req.method === 'GET')  return apiMe(req, res);
+  if (pathname === '/api/signup' && req.method === 'POST') return apiSignup(req, res);
   if (pathname === '/api/admin/users') return apiAdminUsers(req, res);
 
   // P4 대시보드 API (docs/API-CONTRACT-P4.md)

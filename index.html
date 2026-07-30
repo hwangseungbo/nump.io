@@ -79,6 +79,15 @@
     box-shadow:0 6px 16px rgba(47,131,71,.28); cursor:pointer;
   }
   .acct-btn svg{ width:16px; height:16px; stroke:#fff; fill:none; stroke-width:1.9; }
+  .auth-box{ display:none; align-items:center; gap:9px; margin-left:8px;
+    padding:7px 8px 7px 14px; background:#fff; border:1px solid var(--line,#e4ece2); border-radius:12px; }
+  .auth-box .who{ font-size:12.5px; font-weight:700; color:var(--ink); white-space:nowrap; }
+  .auth-box .who small{ font-weight:600; color:var(--muted); }
+  .auth-box .logout-btn{ border:none; background:#f1f6f0; color:#3c5a47; font-family:inherit;
+    font-size:12px; font-weight:700; padding:7px 12px; border-radius:9px; cursor:pointer; }
+  .auth-box .logout-btn:hover{ background:#e3eee4; }
+  .auth-box .login-link{ font-size:12.5px; font-weight:700; color:var(--accent-d,#1f8a4c);
+    text-decoration:none; padding:2px 6px; }
 
   /* ---------- HERO ---------- */
   .hero{
@@ -329,6 +338,7 @@
         <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4"/></svg>
         회계 관리
       </div>
+      <div class="auth-box" id="authBox"></div>
     </nav>
   </header>
 
@@ -603,16 +613,42 @@
       });
     });
 
-    // 로그인 상태면 아바타를 내 역할로 자동 표시
+    // 로그인 상태면 아바타를 내 역할로 자동 표시 + 상단바에 로그인 상태/로그아웃 표시
     var AV = { doctor:'assets/av-doctor.png', nurse:'assets/av-nurse.png', patient:'assets/av-patient.png' };
+    function renderAuthBox(me){
+      var box = document.getElementById('authBox');
+      if(!box) return;
+      box.textContent = '';
+      if(me){
+        var who = document.createElement('span');
+        who.className = 'who';
+        who.textContent = me.name + '님 ';
+        var small = document.createElement('small');
+        small.textContent = '· ' + (ROLE_LABEL[me.role] || '관리자');
+        who.appendChild(small);
+        var out = document.createElement('button');
+        out.type = 'button'; out.className = 'logout-btn'; out.textContent = '로그아웃';
+        out.addEventListener('click', function(){
+          fetch('/api/logout', { method:'POST' }).then(function(){ location.reload(); })
+            .catch(function(){ toast('서버에 연결할 수 없습니다.'); });
+        });
+        box.appendChild(who); box.appendChild(out);
+      } else {
+        var a = document.createElement('a');
+        a.className = 'login-link'; a.href = 'platform/login.html'; a.textContent = '로그인';
+        box.appendChild(a);
+      }
+      box.style.display = 'flex';
+    }
     fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+      renderAuthBox(me);
       if(!me) return;
       if(AV[me.role]){
         charImg.src = AV[me.role];
         opts.forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-role') === me.role); });
         currentRole = me.role;
       }
-    }).catch(function(){});
+    }).catch(function(){ renderAuthBox(null); });
 
     // "통합 대시보드 열기" — 로그인 필요. 로그인돼 있으면 내 역할 페이지로,
     // 아니면 로그인 페이지로 이동한다.
