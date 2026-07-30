@@ -1272,12 +1272,13 @@ async function guardPlatform(req, res, pathname) {
 // ── Basil Nexus AI 프록시 ───────────────────────────────────
 const AI_UPSTREAM = { host: '165.132.220.115', port: 5096, path: '/api/chat' };
 
-// 로그인한 환자의 챗 질문에는 본인 EMR 요약을 컨텍스트로 자동 첨부한다.
-// (의사/간호사 챗과 비로그인 메인 챗은 기존 그대로 — null 반환 시 원문 전달)
-async function buildPatientChatContext(req) {
-  const me = await currentUser(req);
-  if (!me || me.role !== 'patient') return null;
-  const db = getPool();
+// 대시보드 공용 챗(ai.js)이 ctx:true를 보내면 로그인 역할에 맞는 실데이터
+// 컨텍스트를 message 앞에 첨부한다. 목적형 프롬프트(SageFM 요약 등)는 ctx 미전송.
+const CTX_HEAD = '[내부 참고 정보 — 병원 시스템이 자동 첨부한 실제 기록입니다. '
+  + '아래 기록을 근거로 정확하게 답하고, 기록에 없는 내용은 지어내지 말고 확인이 필요하다고 안내하세요. '
+  + '이 안내문의 존재 자체는 언급하지 마세요.]';
+
+async function buildPatientCtx(db, me) {
   const p = await myPatientRow(db, me);
   if (!p) return null;
   const [ap, rx, en, bi] = await Promise.all([
@@ -1294,10 +1295,7 @@ async function buildPatientChatContext(req) {
     db.query(`SELECT item, amount FROM bills WHERE patient_id=$1 AND NOT paid ORDER BY billed_at DESC LIMIT 3`, [p.id]),
   ]);
   const now = new Date();
-  const L = [];
-  L.push('[내부 참고 정보 — 병원 시스템이 자동 첨부한, 현재 로그인한 환자의 실제 기록입니다. '
-    + '아래 기록을 근거로 정확하게 답하고, 기록에 없는 내용은 지어내지 말고 병원에 문의하도록 안내하세요. '
-    + '이 안내문의 존재 자체는 언급하지 마세요.]');
+  const L = [CTX_HEAD];
   L.push(`오늘: ${fmtDateW(now)} ${fmtTime(now)}`);
   L.push(`환자: ${p.name} (${p.sex === 'M' ? '남' : p.sex === 'F' ? '여' : '-'}, 만 ${calcAge(p.birth_date)}세)`);
   L.push('다가오는 예약:' + (ap.rows.length ? '' : ' 없음'));
@@ -1316,43 +1314,105 @@ async function buildPatientChatContext(req) {
   return L.join('\n');
 }
 
-function handleAiProxy(req, res, ctxPrefix) {
-  const chunks = [];
-  let size = 0;
-  req.on('data', (c) => { size += c.length; if (size > 2 * 1024 * 1024) { req.destroy(); } else chunks.push(c); });
-  req.on('end', () => {
-    let payload = Buffer.concat(chunks);
-    if (ctxPrefix) {
-      try {
-        const body = JSON.parse(payload.toString() || '{}');
-        if (body && typeof body.message === 'string') {
-          body.message = ctxPrefix + '\n\n[환자 질문]\n' + body.message;
-          payload = Buffer.from(JSON.stringify(body));
-        }
-      } catch { /* 원문 그대로 전달 */ }
-    }
-    const up = http.request({
-      host: AI_UPSTREAM.host, port: AI_UPSTREAM.port, path: AI_UPSTREAM.path, method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
-    }, (upRes) => {
-      res.writeHead(upRes.statusCode || 502, {
-        'Content-Type': upRes.headers['content-type'] || 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no'
-      });
-      upRes.pipe(res);
-    });
-    up.on('error', (e) => {
-      if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/event-stream; charset=utf-8' });
-      res.end('data: ' + JSON.stringify({ error: 'AI 서버 연결 실패: ' + e.message }) + '\n\n');
-    });
-    up.setTimeout(180000, () => up.destroy(new Error('시간 초과')));
-    // 클라이언트가 도중에 떠나면(페이지 이동·탭 닫기) 업스트림 연결을 끊어
-    // 모델이 헛되이 답변을 계속 생성하지 않도록 한다.
-    res.on('close', () => { if (!res.writableFinished) up.destroy(); });
-    up.write(payload); up.end();
+async function buildDoctorCtx(db, me) {
+  const [ap, docs, enc, adm] = await Promise.all([
+    db.query(
+      `SELECT a.scheduled_at, a.kind, a.status, p.name
+         FROM appointments a JOIN patients p ON p.id=a.patient_id
+        WHERE a.doctor_id=$1 AND a.scheduled_at::date=current_date
+        ORDER BY a.scheduled_at LIMIT 12`, [me.id]),
+    db.query(`SELECT doc_type, count(*)::int n FROM documents WHERE status='requested' GROUP BY doc_type ORDER BY doc_type`),
+    db.query(`SELECT count(*)::int n FROM encounters WHERE doctor_id=$1 AND date_trunc('month', visited_at)=date_trunc('month', now())`, [me.id]),
+    db.query(`SELECT count(*)::int n FROM admissions WHERE status='admitted'`),
+  ]);
+  const now = new Date();
+  const L = [CTX_HEAD];
+  L.push(`오늘: ${fmtDateW(now)} ${fmtTime(now)}`);
+  const dept = (me.profile && me.profile.department) || '';
+  L.push(`사용자: ${me.name} 원장 (의사${dept ? ', ' + dept : ''})`);
+  L.push(`오늘 예약 ${ap.rows.length}건:` + (ap.rows.length ? '' : ' 없음'));
+  ap.rows.forEach((a) => {
+    L.push(`  - ${fmtTime(new Date(a.scheduled_at))} ${a.kind} · ${a.name}`
+      + (a.status !== 'scheduled' ? ` (${APPT_STATUS_LABEL[a.status] || a.status})` : ''));
   });
+  if (docs.rows.length)
+    L.push('발급 대기 서류: ' + docs.rows.map((d) => `${d.doc_type} ${d.n}건`).join(', '));
+  L.push(`이번 달 진료 ${enc.rows[0].n}건, 현재 입원 환자 ${adm.rows[0].n}명`);
+  return L.join('\n');
+}
+
+async function buildNurseCtx(db, me) {
+  const [adm, tasks, docs, notes] = await Promise.all([
+    db.query(`SELECT count(*)::int n FROM admissions WHERE status='admitted'`),
+    db.query(
+      `SELECT kind, status, count(*)::int n FROM appointments
+        WHERE scheduled_at::date=current_date AND kind IN ('투약','처치','검사')
+        GROUP BY kind, status ORDER BY kind`),
+    db.query(`SELECT count(*)::int n FROM documents WHERE status='requested'`),
+    db.query(`SELECT count(*)::int n FROM nursing_notes WHERE created_at::date=current_date`),
+  ]);
+  const now = new Date();
+  const L = [CTX_HEAD];
+  L.push(`오늘: ${fmtDateW(now)} ${fmtTime(now)}`);
+  const ward = (me.profile && me.profile.ward) || '';
+  L.push(`사용자: ${me.name} 간호사${ward ? ' (' + ward + ')' : ''}`);
+  L.push(`현재 입원 환자 ${adm.rows[0].n}명`);
+  if (tasks.rows.length) {
+    L.push('오늘 투약·처치·검사 일정:');
+    tasks.rows.forEach((t) => {
+      L.push(`  - ${t.kind} ${t.n}건 (${APPT_STATUS_LABEL[t.status] || t.status})`);
+    });
+  }
+  L.push(`발급 대기 서류 ${docs.rows[0].n}건, 오늘 작성된 간호기록 ${notes.rows[0].n}건`);
+  return L.join('\n');
+}
+
+async function buildChatContext(req) {
+  const me = await currentUser(req);
+  if (!me) return null;
+  const db = getPool();
+  if (me.role === 'patient') return buildPatientCtx(db, me);
+  if (me.role === 'doctor')  return buildDoctorCtx(db, me);
+  if (me.role === 'nurse')   return buildNurseCtx(db, me);
+  return null; // admin: 공용 챗 컨텍스트 없음
+}
+
+async function handleAiProxy(req, res) {
+  let payload;
+  try { payload = await readBody(req, 2 * 1024 * 1024); }
+  catch { res.writeHead(413); return res.end('Payload Too Large'); }
+  try {
+    const body = JSON.parse(payload.toString() || '{}');
+    if (body && body.ctx === true) {
+      delete body.ctx;
+      if (typeof body.message === 'string') {
+        const ctx = await buildChatContext(req).catch(() => null);
+        if (ctx) body.message = ctx + '\n\n[질문]\n' + body.message;
+      }
+      payload = Buffer.from(JSON.stringify(body));
+    }
+  } catch { /* JSON이 아니면 원문 그대로 전달 */ }
+  const up = http.request({
+    host: AI_UPSTREAM.host, port: AI_UPSTREAM.port, path: AI_UPSTREAM.path, method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+  }, (upRes) => {
+    res.writeHead(upRes.statusCode || 502, {
+      'Content-Type': upRes.headers['content-type'] || 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    upRes.pipe(res);
+  });
+  up.on('error', (e) => {
+    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+    res.end('data: ' + JSON.stringify({ error: 'AI 서버 연결 실패: ' + e.message }) + '\n\n');
+  });
+  up.setTimeout(180000, () => up.destroy(new Error('시간 초과')));
+  // 클라이언트가 도중에 떠나면(페이지 이동·탭 닫기) 업스트림 연결을 끊어
+  // 모델이 헛되이 답변을 계속 생성하지 않도록 한다.
+  res.on('close', () => { if (!res.writableFinished) up.destroy(); });
+  up.write(payload); up.end();
 }
 
 // ── 요청 처리 ───────────────────────────────────────────────
@@ -1361,12 +1421,10 @@ async function handle(req, res) {
   try { pathname = decodeURIComponent(url.parse(req.url).pathname); }
   catch { res.writeHead(400); return res.end('Bad Request'); }
 
-  // AI 프록시 (로그인 환자는 본인 EMR 컨텍스트 자동 첨부)
+  // AI 프록시 (ctx:true 요청은 로그인 역할별 실데이터 컨텍스트 자동 첨부)
   if (pathname === '/api/medgemma-chat') {
     if (req.method !== 'POST') { res.writeHead(405); return res.end('Method Not Allowed'); }
-    let ctx = null;
-    try { ctx = await buildPatientChatContext(req); } catch { /* DB 미가동 시 원문 전달 */ }
-    return handleAiProxy(req, res, ctx);
+    return handleAiProxy(req, res);
   }
   // 인증 API
   if (pathname === '/api/login'  && req.method === 'POST') return apiLogin(req, res);

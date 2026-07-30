@@ -76,7 +76,7 @@
       var resp = await fetch('/api/medgemma-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: text })
+        body: JSON.stringify({ session_id: sessionId, message: text, ctx: true })
       });
       if (!resp.ok || !resp.body) throw new Error('서버 응답 오류 (' + resp.status + ')');
       var reader = resp.body.getReader();
