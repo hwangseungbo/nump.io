@@ -6,7 +6,7 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
 :root{
-  /* 기본(그린) 테마 — 의사/환자 공용 */
+  /* 기본(그린) 테마 — 의사/관리자 공용 */
   --accent:     #2f9e57;
   --accent-d:   #1f8a4c;
   --accent-dd:  #176b3a;
@@ -40,6 +40,16 @@ body[data-role="nurse"]{
   --accent-soft:#eeebfb;
   --accent-line:#ddd6f6;
   --page:       #f4f4fb;
+}
+
+/* 환자 — 블루 테마 */
+body[data-role="patient"]{
+  --accent:     #2f80d0;
+  --accent-d:   #2169b8;
+  --accent-dd:  #175294;
+  --accent-soft:#e9f2fb;
+  --accent-line:#d5e6f6;
+  --page:       #f2f5f9;
 }
 
 *{ box-sizing:border-box; margin:0; padding:0; }
@@ -95,6 +105,7 @@ svg{ flex:none; }
   box-shadow:0 5px 14px rgba(47,158,87,.28);
 }
 body[data-role="nurse"] .role-badge{ box-shadow:0 5px 14px rgba(106,91,212,.28); }
+body[data-role="patient"] .role-badge{ box-shadow:0 5px 14px rgba(47,128,208,.28); }
 
 /* 프로필 카드 */
 .sb-profile{
@@ -306,6 +317,7 @@ body[data-role="nurse"] .role-badge{ box-shadow:0 5px 14px rgba(106,91,212,.28);
   font-size:13px; font-weight:700; padding:10px 16px; border-radius:11px; border:none;
   box-shadow:0 6px 16px rgba(47,158,87,.26); }
 body[data-role="nurse"] .btn-cta{ box-shadow:0 6px 16px rgba(106,91,212,.26); }
+body[data-role="patient"] .btn-cta{ box-shadow:0 6px 16px rgba(47,128,208,.26); }
 .btn-cta svg{ width:15px; height:15px; stroke:#fff; fill:none; stroke-width:2.2; }
 
 .rail .card{ box-shadow:none; }

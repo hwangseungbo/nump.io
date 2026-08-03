@@ -72,7 +72,7 @@
     no.style.cssText = 'flex:1;border:1px solid #e6ece6;background:#f6f9f6;color:#3c5a47;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 0;border-radius:11px;cursor:pointer;';
     var yes = document.createElement('button');
     yes.textContent = '로그아웃';
-    yes.style.cssText = 'flex:1;border:none;background:linear-gradient(135deg,#4aab61,#2f8347);color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 0;border-radius:11px;cursor:pointer;';
+    yes.style.cssText = 'flex:1;border:none;background:linear-gradient(135deg,var(--accent,#4aab61),var(--accent-d,#2f8347));color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 0;border-radius:11px;cursor:pointer;';
     function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
     function onKey(e) { if (e.key === 'Escape') close(); }
     no.addEventListener('click', close);
