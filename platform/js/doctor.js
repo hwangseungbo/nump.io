@@ -419,12 +419,13 @@
 
   /* ---------- 공용 컴포넌트: 환자 검색 + 목록 (계약 1-1) ---------- */
   // host에 검색 카드 + 목록 카드를 붙이고, 행 클릭 시 onPick(patientDetail) 호출
-  function patientPicker(host, onPick) {
+  function patientPicker(host, onPick, initialQ) {
     var bar = h('div', 'card');
     var sr = h('div', 'v-search');
     var inp = document.createElement('input');
     inp.type = 'text';
     inp.placeholder = '환자 이름 또는 ID로 검색 (예: 김철수) — 비워 두면 최근 내원 환자 20명';
+    if (initialQ) inp.value = initialQ;
     var sbtn = h('button', 'btn-cta', '검색'); sbtn.type = 'button';
     sr.appendChild(inp); sr.appendChild(sbtn);
     bar.appendChild(sr);
@@ -460,7 +461,16 @@
       e.preventDefault();
       doSearch();
     });
-    load('');
+    load(initialQ || '');
+  }
+
+  // 메인 페이지 검색바가 넘긴 검색어 (1회용 — 꺼내면서 지운다)
+  function takeHandoffQuery() {
+    try {
+      var q = sessionStorage.getItem('bn.searchQ') || '';
+      if (q) sessionStorage.removeItem('bn.searchQ');
+      return q;
+    } catch (e) { return ''; }
   }
 
   // AI 스트리밍 섹션(제목 + 본문 + 버튼) — search/ai-summary/drug 뷰 공용
@@ -500,7 +510,7 @@
     patientPicker(pickWrap, function (p) {
       renderEmrDetail(detail, p);
       detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    }, takeHandoffQuery());
   }
 
   // EMR 상세 카드(진단·처방·바이탈·검사 + AI 요약) — search 뷰

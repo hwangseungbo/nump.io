@@ -706,6 +706,31 @@
       });
     }
 
+    // 환자 검색바 — 의사/간호사면 검색어를 들고 대시보드 환자 검색 뷰로 이동
+    var sbar = document.querySelector('.searchbar');
+    if(sbar){
+      var sInput = sbar.querySelector('input');
+      var sBtn = sbar.querySelector('button');
+      var goSearch = function(){
+        var q = sInput.value.trim();
+        fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+          if(me && (me.role === 'doctor' || me.role === 'nurse')){
+            try{ if(q) sessionStorage.setItem('bn.searchQ', q); }catch(err){}
+            location.href = 'platform/' + me.role + '/index.html#view-search';
+          } else if(me){
+            toast('환자 검색은 의료진 계정에서 이용할 수 있습니다.');
+          } else {
+            toast('환자 검색은 의료진 로그인 후 이용할 수 있습니다.');
+            setTimeout(function(){ location.href = 'platform/login.html'; }, 1200);
+          }
+        }).catch(function(){ toast('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'); });
+      };
+      if(sBtn) sBtn.addEventListener('click', goSearch);
+      if(sInput) sInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); goSearch(); }
+      });
+    }
+
     // close when clicking elsewhere or pressing Escape
     document.addEventListener('click', function(e){
       if(!panel.contains(e.target) && e.target !== charImg){

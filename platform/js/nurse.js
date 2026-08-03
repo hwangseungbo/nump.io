@@ -457,6 +457,11 @@
     var card = el('div', 'card');
     var bar = el('div', 'vw-toolbar');
     var input = textInput('환자 이름 또는 ID 입력');
+    // 메인 페이지 검색바가 넘긴 검색어 (1회용)
+    try {
+      var q0 = sessionStorage.getItem('bn.searchQ') || '';
+      if (q0) { sessionStorage.removeItem('bn.searchQ'); input.value = q0; }
+    } catch (e) {}
     var btn = vbtn('검색');
     bar.appendChild(input); bar.appendChild(btn);
     card.appendChild(bar);
