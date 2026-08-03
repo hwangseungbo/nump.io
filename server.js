@@ -959,6 +959,9 @@ async function apiDocumentsGet(req, res) {
   const status = String(query.status || 'all');
   if (!['requested', 'issued', 'rejected', 'processed', 'all'].includes(status))
     return sendJson(res, 400, { error: '잘못된 status' });
+  const docType = query.type ? String(query.type) : null;
+  if (docType && !DOC_TYPES.includes(docType))
+    return sendJson(res, 400, { error: '잘못된 서류 종류' });
   const page = pageOf(query);
   const omitPatient = me.role === 'patient';
   let pidFilter = null;
@@ -971,6 +974,7 @@ async function apiDocumentsGet(req, res) {
   const params = [];
   if (status === 'processed') conds.push(`d.status <> 'requested'`);
   else if (status !== 'all') { params.push(status); conds.push(`d.status=$${params.length}`); }
+  if (docType) { params.push(docType); conds.push(`d.doc_type=$${params.length}`); }
   if (pidFilter) { params.push(pidFilter); conds.push(`d.patient_id=$${params.length}`); }
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
   const [cntR, rowR] = await Promise.all([

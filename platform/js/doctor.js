@@ -750,6 +750,24 @@
     var tabReq = h('button', 'vtab on', '신청됨'); tabReq.type = 'button';
     var tabDone = h('button', 'vtab', '처리 완료'); tabDone.type = 'button';
     tabs.appendChild(tabReq); tabs.appendChild(tabDone);
+    // 서류 종류 필터 — 알림에서 "진단서 요청 n건"을 눌러 들어오면 해당 종류가 선택된다
+    var DOC_TYPES = ['진단서', '소견서', '의무기록 사본', '검사결과서', '처방전', '보험서류', '기타'];
+    var typeSel = document.createElement('select');
+    typeSel.style.cssText = 'margin-left:auto;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 10px;cursor:pointer;';
+    var o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = '전체 종류';
+    typeSel.appendChild(o0);
+    DOC_TYPES.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      typeSel.appendChild(o);
+    });
+    try {
+      var t0 = sessionStorage.getItem('bn.docType') || '';
+      if (t0) { sessionStorage.removeItem('bn.docType'); if (DOC_TYPES.indexOf(t0) !== -1) typeSel.value = t0; }
+    } catch (e) {}
+    typeSel.addEventListener('change', function () { load(1); });
+    tabs.appendChild(typeSel);
     card.appendChild(tabs);
     var listWrap = h('div', null);
     listWrap.style.marginTop = '12px';
@@ -782,6 +800,7 @@
       var url = tab === 'requested'
         ? '/api/documents?status=requested&page=' + page
         : '/api/documents?status=processed&page=' + page;
+      if (typeSel.value) url += '&type=' + encodeURIComponent(typeSel.value);
       getJson(url).then(function (d) {
         listWrap.innerHTML = '';
         var rows = (d && d.rows) || [];
@@ -1066,7 +1085,7 @@
   function updateBellItems(data) {
     bellItems = [];
     (Array.isArray(data.docRequests) ? data.docRequests : []).forEach(function (d) {
-      if (d.count > 0) bellItems.push({ t: d.type + ' 요청 ' + d.count + '건', h: '#view-docs' });
+      if (d.count > 0) bellItems.push({ t: d.type + ' 요청 ' + d.count + '건', h: '#view-docs', dt: d.type });
     });
     if (Array.isArray(data.schedule) && data.schedule.length)
       bellItems.push({ t: '오늘 예약 ' + data.schedule.length + '건', h: '#view-schedule' });
@@ -1102,7 +1121,14 @@
         var arr = document.createElement('span'); arr.textContent = '›';
         arr.style.cssText = 'color:#9db3a5;font-weight:700;';
         row.appendChild(t); row.appendChild(arr);
-        row.addEventListener('click', function () { closeBell(); if (it.h) location.hash = it.h; });
+        row.addEventListener('click', function () {
+          closeBell();
+          if (it.dt) { try { sessionStorage.setItem('bn.docType', it.dt); } catch (e2) {} }
+          if (!it.h) return;
+          // 이미 같은 뷰에 있으면 hashchange가 안 일어나므로 강제로 재렌더
+          if (location.hash === it.h) window.dispatchEvent(new Event('hashchange'));
+          else location.hash = it.h;
+        });
         panel.appendChild(row);
       });
       wrap.appendChild(panel);
