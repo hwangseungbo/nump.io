@@ -1379,11 +1379,23 @@ async function buildChatContext(me) {
   else if (me.role === 'doctor') ctx = await buildDoctorCtx(db, me);
   else if (me.role === 'nurse')  ctx = await buildNurseCtx(db, me);
   if (!ctx) return null; // admin: 공용 챗 컨텍스트 없음
-  // P3: 페르소나 요약이 있으면 컨텍스트 끝에 덧붙인다 (조회 실패 시 ctx만 반환)
+  // P3: 페르소나 요약·성향이 있으면 컨텍스트 끝에 덧붙인다 (조회 실패 시 ctx만 반환)
   try {
-    const r = await db.query(`SELECT summary FROM user_personas WHERE user_id=$1`, [me.id]);
-    const s = String((r.rows[0] && r.rows[0].summary) || '').trim();
+    const r = await db.query(`SELECT summary, traits FROM user_personas WHERE user_id=$1`, [me.id]);
+    const row = r.rows[0] || {};
+    const s = String(row.summary || '').trim();
     if (s) ctx += '\n사용자 메모(이전 대화 요약):\n' + s.slice(0, 600);
+    // traits(JSONB): 값이 있는 키만 `키=값`으로 이어붙여 한 줄 추가 (배열은 ·로 join, 전체 200자 컷)
+    const t = row.traits;
+    if (t && typeof t === 'object' && !Array.isArray(t)) {
+      const parts = [];
+      Object.keys(t).forEach((k) => {
+        const v = t[k];
+        if (Array.isArray(v)) { if (v.length) parts.push(k + '=' + v.join('·')); }
+        else if (typeof v === 'string' && v.trim()) parts.push(k + '=' + v.trim());
+      });
+      if (parts.length) ctx += '\n' + ('성향: ' + parts.join(', ')).slice(0, 200);
+    }
   } catch (e) { console.error('[persona] summary 조회 실패:', e.message); }
   return ctx;
 }
@@ -1445,8 +1457,11 @@ async function refreshPersona(userId) {
       (m.role === 'user' ? '사용자: ' : 'AI: ') + String(m.content).slice(0, 500));
     const prompt = [
       '[내부 작업] 아래는 병원 챗봇 사용자 한 명의 기존 요약과 최근 대화입니다.',
-      '이 사용자의 관심사, 반복해서 묻는 질문 주제, 건강 관련 우려, 선호하는 답변 방식이',
-      '드러나도록 갱신된 요약을 5줄 이내로 작성하세요. 인사말이나 부연 설명 없이 요약문만 출력하세요.',
+      '이 사용자의 관심사, 반복해서 묻는 질문 주제, 건강 관련 우려, 선호하는 답변 방식과 함께,',
+      '사용자의 말투와 태도(공손함/거침/반말/공격적/불안 등 실제 발화에서 드러난 것)를 관찰하세요.',
+      '결과는 아래 형식의 JSON 한 개만 출력하세요. 마크다운 펜스·인사말·부연 설명을 절대 붙이지 마세요.',
+      'summary는 위 관찰이 드러나는 5줄 이내의 갱신된 요약이고, 드러나지 않은 항목은 빈 문자열/빈 배열로 두세요.',
+      '{"summary": "5줄 이내 요약", "traits": {"말투": "", "태도": "", "관심사": [], "주의사항": ""}}',
       '',
       '[기존 요약]',
       prev || '(없음)',
@@ -1454,9 +1469,25 @@ async function refreshPersona(userId) {
       '[최근 대화]',
     ].concat(lines).join('\n');
     const text = (await askUpstream('bn-persona-' + userId + '-' + Date.now(), prompt, 120000)).trim();
-    if (text)
+    if (!text) return; // 빈 응답이면 아무것도 갱신하지 않음
+    // 방어적 파싱: 펜스 제거 후 첫 '{'~마지막 '}'만 JSON.parse. traits는 객체일 때만 채택.
+    // 실패 시 응답 전문을 summary로 저장하고 traits는 기존값을 유지한다 (크래시 금지).
+    let summary = text, traits = null;
+    try {
+      const cleaned = text.replace(/```[a-z]*/gi, '');
+      const a = cleaned.indexOf('{'), b = cleaned.lastIndexOf('}');
+      if (a >= 0 && b > a) {
+        const obj = JSON.parse(cleaned.slice(a, b + 1));
+        if (obj && typeof obj.summary === 'string' && obj.summary.trim()) summary = obj.summary.trim();
+        if (obj && obj.traits && typeof obj.traits === 'object' && !Array.isArray(obj.traits)) traits = obj.traits;
+      }
+    } catch { /* JSON 미준수 응답 → 전문을 summary로 폴백 */ }
+    if (traits)
+      await db.query(`UPDATE user_personas SET summary=$1, traits=$2, msg_count=0, updated_at=now() WHERE user_id=$3`,
+        [summary, JSON.stringify(traits), userId]);
+    else
       await db.query(`UPDATE user_personas SET summary=$1, msg_count=0, updated_at=now() WHERE user_id=$2`,
-        [text, userId]);
+        [summary, userId]);
   } catch (e) {
     console.error('[persona] 요약 갱신 실패 (user ' + userId + '):', e.message);
   } finally {
