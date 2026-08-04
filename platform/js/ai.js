@@ -18,6 +18,16 @@
   if (fieldEl) box.insertBefore(chat, fieldEl); else box.appendChild(chat);
   var chipsWrap = box.querySelector('.chips');
 
+  // P3: 대화 저장 안내 — 입력창 바로 아래, 은은하게 (강조·아이콘 없음)
+  if (fieldEl) {
+    var note = document.createElement('div');
+    note.className = 'ai-note';
+    note.textContent = '대화 내용은 맞춤 상담을 위해 저장됩니다';
+    note.style.cssText = 'font-size:11px;text-align:center;color:var(--muted,#9aa7b0);margin:6px 0 0;';
+    if (fieldEl.nextSibling) box.insertBefore(note, fieldEl.nextSibling);
+    else box.appendChild(note);
+  }
+
   var history = [];
   var streaming = false;
   // NUMP 챗봇은 세션 기반(서버가 히스토리 관리). 페이지 단위로 고정 세션 ID 사용.

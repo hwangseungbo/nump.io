@@ -1371,31 +1371,139 @@ async function buildNurseCtx(db, me) {
   return L.join('\n');
 }
 
-async function buildChatContext(req) {
-  const me = await currentUser(req);
+async function buildChatContext(me) {
   if (!me) return null;
   const db = getPool();
-  if (me.role === 'patient') return buildPatientCtx(db, me);
-  if (me.role === 'doctor')  return buildDoctorCtx(db, me);
-  if (me.role === 'nurse')   return buildNurseCtx(db, me);
-  return null; // admin: 공용 챗 컨텍스트 없음
+  let ctx = null;
+  if (me.role === 'patient')     ctx = await buildPatientCtx(db, me);
+  else if (me.role === 'doctor') ctx = await buildDoctorCtx(db, me);
+  else if (me.role === 'nurse')  ctx = await buildNurseCtx(db, me);
+  if (!ctx) return null; // admin: 공용 챗 컨텍스트 없음
+  // P3: 페르소나 요약이 있으면 컨텍스트 끝에 덧붙인다 (조회 실패 시 ctx만 반환)
+  try {
+    const r = await db.query(`SELECT summary FROM user_personas WHERE user_id=$1`, [me.id]);
+    const s = String((r.rows[0] && r.rows[0].summary) || '').trim();
+    if (s) ctx += '\n사용자 메모(이전 대화 요약):\n' + s.slice(0, 600);
+  } catch (e) { console.error('[persona] summary 조회 실패:', e.message); }
+  return ctx;
+}
+
+// ── P3 대화 로깅·페르소나 ───────────────────────────────────
+// 공용 챗(ctx:true) 대화를 chat_messages에 기록하고, 누적 턴이 쌓이면
+// 업스트림 LLM으로 user_personas.summary를 갱신한다.
+// 어떤 실패도 채팅 본 기능을 깨뜨리지 않도록 전부 try/catch로 격리한다.
+const AI_LOG_MAX = 256 * 1024;   // 업스트림 응답 누적 상한 (256KB)
+const personaBusy = new Set();   // 요약 진행 중인 user_id (동시 중복 실행 방지)
+
+// SSE 원문에서 텍스트 조각(delta|content)만 이어붙인다. error 이벤트는 무시.
+function extractSseText(raw) {
+  let out = '';
+  raw.split('\n\n').forEach((ev) => {
+    if (ev.indexOf('data: ') !== 0) return;
+    try {
+      const d = JSON.parse(ev.slice(6));
+      const piece = (d.delta != null) ? d.delta : d.content; // Medgemma=delta, NUMP챗봇=content
+      if (typeof piece === 'string') out += piece;
+    } catch { /* 파싱 불가 이벤트는 무시 */ }
+  });
+  return out;
+}
+
+// 내부 용도(페르소나 요약)로 업스트림에 1회 질의하고 전체 답변 텍스트를 돌려준다.
+function askUpstream(sessionId, message, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const payload = Buffer.from(JSON.stringify({ session_id: sessionId, message }));
+    const up = http.request({
+      host: AI_UPSTREAM.host, port: AI_UPSTREAM.port, path: AI_UPSTREAM.path, method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+    }, (upRes) => {
+      const bufs = []; let total = 0;
+      upRes.on('data', (c) => { if (total < AI_LOG_MAX) { total += c.length; bufs.push(c); } });
+      upRes.on('end', () => resolve(extractSseText(Buffer.concat(bufs).toString('utf8'))));
+      upRes.on('error', reject);
+    });
+    up.on('error', reject);
+    up.setTimeout(timeoutMs || 120000, () => up.destroy(new Error('시간 초과')));
+    up.write(payload); up.end();
+  });
+}
+
+// 최근 대화 30건 + 기존 요약으로 페르소나 요약을 갱신한다 (fire-and-forget 전용).
+async function refreshPersona(userId) {
+  if (personaBusy.has(userId)) return;
+  personaBusy.add(userId);
+  try {
+    const db = getPool();
+    const [msgs, per] = await Promise.all([
+      db.query(`SELECT role, content FROM chat_messages
+                 WHERE user_id=$1 ORDER BY created_at DESC, id DESC LIMIT 30`, [userId]),
+      db.query(`SELECT summary FROM user_personas WHERE user_id=$1`, [userId]),
+    ]);
+    if (!msgs.rows.length) return;
+    const prev = String((per.rows[0] && per.rows[0].summary) || '').trim();
+    const lines = msgs.rows.reverse().map((m) => // DESC로 가져왔으므로 시간순으로 뒤집기
+      (m.role === 'user' ? '사용자: ' : 'AI: ') + String(m.content).slice(0, 500));
+    const prompt = [
+      '[내부 작업] 아래는 병원 챗봇 사용자 한 명의 기존 요약과 최근 대화입니다.',
+      '이 사용자의 관심사, 반복해서 묻는 질문 주제, 건강 관련 우려, 선호하는 답변 방식이',
+      '드러나도록 갱신된 요약을 5줄 이내로 작성하세요. 인사말이나 부연 설명 없이 요약문만 출력하세요.',
+      '',
+      '[기존 요약]',
+      prev || '(없음)',
+      '',
+      '[최근 대화]',
+    ].concat(lines).join('\n');
+    const text = (await askUpstream('bn-persona-' + userId + '-' + Date.now(), prompt, 120000)).trim();
+    if (text)
+      await db.query(`UPDATE user_personas SET summary=$1, msg_count=0, updated_at=now() WHERE user_id=$2`,
+        [text, userId]);
+  } catch (e) {
+    console.error('[persona] 요약 갱신 실패 (user ' + userId + '):', e.message);
+  } finally {
+    personaBusy.delete(userId);
+  }
+}
+
+// assistant 답변 저장 + 턴 수 누적. 누적 10턴 이상이면 요약을 기동한다.
+async function logAssistantTurn(userId, sessionId, text) {
+  const db = getPool();
+  await db.query(`INSERT INTO chat_messages (user_id, session_id, role, content) VALUES ($1,$2,'assistant',$3)`,
+    [userId, sessionId, text.slice(0, 8000)]);
+  const r = await db.query(
+    `INSERT INTO user_personas (user_id, msg_count) VALUES ($1, 2)
+       ON CONFLICT (user_id) DO UPDATE SET msg_count = user_personas.msg_count + 2, updated_at = now()
+     RETURNING msg_count`, [userId]);
+  if (r.rows[0] && r.rows[0].msg_count >= 10) refreshPersona(userId); // fire-and-forget (내부에서 예외 처리)
 }
 
 async function handleAiProxy(req, res) {
   let payload;
   try { payload = await readBody(req, 2 * 1024 * 1024); }
   catch { res.writeHead(413); return res.end('Payload Too Large'); }
+  let logMeta = null; // P3: 로그인 사용자의 ctx:true 대화만 기록 { userId, sessionId, question }
   try {
     const body = JSON.parse(payload.toString() || '{}');
     if (body && body.ctx === true) {
       delete body.ctx;
       if (typeof body.message === 'string') {
-        const ctx = await buildChatContext(req).catch(() => null);
+        let me = null;
+        try { me = await currentUser(req); } catch { /* DB 미가동 시 컨텍스트 없이 진행 */ }
+        if (me) logMeta = { userId: me.id, sessionId: String(body.session_id || 'unknown').slice(0, 80), question: body.message };
+        const ctx = me ? await buildChatContext(me).catch(() => null) : null;
         if (ctx) body.message = ctx + '\n\n[질문]\n' + body.message;
       }
       payload = Buffer.from(JSON.stringify(body));
     }
   } catch { /* JSON이 아니면 원문 그대로 전달 */ }
+  // P3: 원본 질문(컨텍스트 첨부 전) 기록 — 스트리밍 시작을 지연시키지 않도록 fire-and-forget
+  if (logMeta) {
+    try {
+      getPool().query(`INSERT INTO chat_messages (user_id, session_id, role, content) VALUES ($1,$2,'user',$3)`,
+        [logMeta.userId, logMeta.sessionId, logMeta.question.slice(0, 4000)])
+        .catch((e) => console.error('[persona] user 메시지 저장 실패:', e.message));
+    } catch (e) { console.error('[persona] user 메시지 저장 실패:', e.message); }
+  }
+  let clientGone = false; // P3: 클라이언트가 중간에 끊으면 답변 로깅 생략
   const up = http.request({
     host: AI_UPSTREAM.host, port: AI_UPSTREAM.port, path: AI_UPSTREAM.path, method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
@@ -1406,6 +1514,20 @@ async function handleAiProxy(req, res) {
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no'
     });
+    // P3: 클라이언트로 흘려보내면서(pipe 유지) 같은 스트림을 누적해 답변 텍스트를 기록한다(티).
+    if (logMeta) {
+      const bufs = []; let total = 0;
+      upRes.on('data', (c) => { if (total < AI_LOG_MAX) { total += c.length; bufs.push(c); } });
+      upRes.on('end', () => {
+        if (clientGone) return;
+        try {
+          const text = extractSseText(Buffer.concat(bufs).toString('utf8')).trim();
+          if (text)
+            logAssistantTurn(logMeta.userId, logMeta.sessionId, text)
+              .catch((e) => console.error('[persona] assistant 저장 실패:', e.message));
+        } catch (e) { console.error('[persona] 응답 파싱 실패:', e.message); }
+      });
+    }
     upRes.pipe(res);
   });
   up.on('error', (e) => {
@@ -1415,7 +1537,7 @@ async function handleAiProxy(req, res) {
   up.setTimeout(180000, () => up.destroy(new Error('시간 초과')));
   // 클라이언트가 도중에 떠나면(페이지 이동·탭 닫기) 업스트림 연결을 끊어
   // 모델이 헛되이 답변을 계속 생성하지 않도록 한다.
-  res.on('close', () => { if (!res.writableFinished) up.destroy(); });
+  res.on('close', () => { if (!res.writableFinished) { clientGone = true; up.destroy(); } });
   up.write(payload); up.end();
 }
 
