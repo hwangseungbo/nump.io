@@ -211,6 +211,20 @@ async function apiAdminUsers(req, res) {
   }
   sendJson(res, 405, { error: 'Method Not Allowed' });
 }
+// P3 페르소나 조회 — 관리자 전용 (의사·간호사·환자 화면에는 노출하지 않는다)
+async function apiAdminPersonas(req, res) {
+  const me = await currentUser(req);
+  if (!me) return sendJson(res, 401, { error: '로그인이 필요합니다.' });
+  if (me.role !== 'admin') return sendJson(res, 403, { error: '관리자만 사용할 수 있습니다.' });
+  if (req.method !== 'GET') return sendJson(res, 405, { error: 'Method Not Allowed' });
+  const db = getPool();
+  const r = await db.query(
+    `SELECT p.user_id, u.username, u.name, u.role, p.summary, p.traits, p.msg_count, p.updated_at,
+            (SELECT count(*)::int FROM chat_messages c WHERE c.user_id = p.user_id) AS msg_total
+       FROM user_personas p JOIN users u ON u.id = p.user_id
+      ORDER BY p.updated_at DESC`);
+  sendJson(res, 200, { personas: r.rows });
+}
 
 // ── P4 대시보드 API (docs/API-CONTRACT-P4.md) ───────────────
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1589,6 +1603,7 @@ async function handle(req, res) {
   if (pathname === '/api/me'     && req.method === 'GET')  return apiMe(req, res);
   if (pathname === '/api/signup' && req.method === 'POST') return apiSignup(req, res);
   if (pathname === '/api/admin/users') return apiAdminUsers(req, res);
+  if (pathname === '/api/admin/personas') return apiAdminPersonas(req, res);
 
   // P4 대시보드 API (docs/API-CONTRACT-P4.md)
   if (pathname === '/api/dashboard/doctor'  && req.method === 'GET')  return apiDashboardDoctor(req, res);

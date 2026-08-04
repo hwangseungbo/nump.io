@@ -31,6 +31,8 @@
   .msg{ display:none; margin-top:12px; font-size:12.5px; padding:9px 12px; border-radius:9px; }
   .msg.ok{ background:#e9f6ee; color:#1f8a4c; border:1px solid #cfe9d8; }
   .msg.bad{ background:#fdeaea; color:#c0392b; border:1px solid #f5c2c2; }
+  .pcard{ margin-top:18px; }
+  .users td.clamp{ max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 </head>
 <body data-role="admin">
@@ -77,6 +79,15 @@
       </form>
     </div>
   </div>
+
+  <!-- P3: AI 페르소나 (관리자 전용 열람 — 요약·성향은 LLM 생성 텍스트라 반드시 esc 처리) -->
+  <div class="card pcard">
+    <div class="sec-t"><h2>AI 페르소나</h2><span class="muted" id="pcnt"></span></div>
+    <table class="users">
+      <thead><tr><th>사용자</th><th>성향</th><th>요약</th><th>누적 대화</th><th>갱신 시각</th></tr></thead>
+      <tbody id="prows"><tr><td colspan="5" class="muted">불러오는 중…</td></tr></tbody>
+    </table>
+  </div>
 </div>
 <script>
 (function(){
@@ -105,6 +116,38 @@
           +'<td>'+String(u.created_at).slice(0,10)+'</td></tr>';
       }).join('');
     }).catch(function(){ rows.innerHTML='<tr><td colspan="6" class="muted">서버 연결 실패</td></tr>'; });
+  }
+
+  // P3: AI 페르소나 목록. summary/traits는 사용자 발화 기반 LLM 생성 텍스트(저장형 XSS 벡터)라
+  // 화면에 넣는 모든 값을 esc()로 통과시킨다. innerHTML에 원문 삽입 금지.
+  var prows=document.getElementById('prows'), pcnt=document.getElementById('pcnt');
+  function traitsLine(t){ // buildChatContext 주입 포맷과 동일 규칙: 값 있는 키만 `키=값`, 배열은 ·join
+    if(!t || typeof t!=='object' || Array.isArray(t)) return '';
+    var parts=[];
+    Object.keys(t).forEach(function(k){
+      var v=t[k];
+      if(Array.isArray(v)){ if(v.length) parts.push(k+'='+v.join('·')); }
+      else if(typeof v==='string' && v.trim()) parts.push(k+'='+v.trim());
+    });
+    return parts.join(', ');
+  }
+  function loadPersonas(){
+    fetch('/api/admin/personas').then(function(r){
+      if(r.status===401||r.status===403) return null; // 리다이렉트는 load()가 처리
+      return r.json();
+    }).then(function(d){
+      if(!d) return;
+      pcnt.textContent = d.personas.length + '명';
+      if(!d.personas.length){ prows.innerHTML='<tr><td colspan="5" class="muted">아직 수집된 페르소나가 없습니다</td></tr>'; return; }
+      prows.innerHTML = d.personas.map(function(p){
+        var tl=traitsLine(p.traits), sum=String(p.summary||'');
+        return '<tr><td>'+esc(p.name)+' <span class="role-pill '+esc(p.role)+'">'+(roleLabel[p.role]||esc(p.role))+'</span></td>'
+          +'<td class="clamp" title="'+esc(tl)+'">'+esc(tl)+'</td>'
+          +'<td class="clamp" title="'+esc(sum)+'">'+esc(sum)+'</td>'
+          +'<td>'+(Number(p.msg_total)||0)+'건</td>'
+          +'<td>'+String(p.updated_at).replace('T',' ').slice(0,16)+'</td></tr>';
+      }).join('');
+    }).catch(function(){ prows.innerHTML='<tr><td colspan="5" class="muted">서버 연결 실패</td></tr>'; });
   }
 
   document.getElementById('roleSel').addEventListener('change', function(){
@@ -164,6 +207,7 @@
   });
 
   load();
+  loadPersonas();
 })();
 </script>
 </body>
