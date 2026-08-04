@@ -33,6 +33,11 @@
   .msg.bad{ background:#fdeaea; color:#c0392b; border:1px solid #f5c2c2; }
   .pcard{ margin-top:18px; }
   .users td.clamp{ max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  tr.p-row{ cursor:pointer; }
+  tr.p-row .caret{ display:inline-block; width:13px; color:var(--muted); font-size:10px; }
+  tr.p-detail td{ background:var(--page); font-size:12.5px; padding:12px 14px 14px 29px; }
+  tr.p-detail .p-kv{ margin:2px 0; }
+  tr.p-detail .p-sum{ white-space:pre-wrap; margin-top:8px; }
 </style>
 </head>
 <body data-role="admin">
@@ -130,15 +135,18 @@
   // P3: AI 페르소나 목록. summary/traits는 사용자 발화 기반 LLM 생성 텍스트(저장형 XSS 벡터)라
   // 화면에 넣는 모든 값을 esc()로 통과시킨다. innerHTML에 원문 삽입 금지.
   var prows=document.getElementById('prows'), pcnt=document.getElementById('pcnt');
-  function traitsLine(t){ // buildChatContext 주입 포맷과 동일 규칙: 값 있는 키만 `키=값`, 배열은 ·join
-    if(!t || typeof t!=='object' || Array.isArray(t)) return '';
-    var parts=[];
+  function traitsEntries(t){ // 값 있는 키만 [키, 값문자열] 목록 (배열은 ·join — buildChatContext 주입과 동일 규칙)
+    if(!t || typeof t!=='object' || Array.isArray(t)) return [];
+    var out=[];
     Object.keys(t).forEach(function(k){
       var v=t[k];
-      if(Array.isArray(v)){ if(v.length) parts.push(k+'='+v.join('·')); }
-      else if(typeof v==='string' && v.trim()) parts.push(k+'='+v.trim());
+      if(Array.isArray(v)){ if(v.length) out.push([k, v.join('·')]); }
+      else if(typeof v==='string' && v.trim()) out.push([k, v.trim()]);
     });
-    return parts.join(', ');
+    return out;
+  }
+  function traitsLine(t){ // 개요 셀용 한 줄: `키=값, ...`
+    return traitsEntries(t).map(function(e){ return e[0]+'='+e[1]; }).join(', ');
   }
   function loadPersonas(){
     fetch('/api/admin/personas').then(function(r){
@@ -149,15 +157,32 @@
       pcnt.textContent = d.personas.length + '명';
       if(!d.personas.length){ prows.innerHTML='<tr><td colspan="5" class="muted">아직 수집된 페르소나가 없습니다</td></tr>'; return; }
       prows.innerHTML = d.personas.map(function(p){
-        var tl=traitsLine(p.traits), sum=String(p.summary||'');
-        return '<tr><td>'+esc(p.name)+' <span class="role-pill '+esc(p.role)+'">'+(roleLabel[p.role]||esc(p.role))+'</span></td>'
+        var ent=traitsEntries(p.traits), tl=traitsLine(p.traits), sum=String(p.summary||'');
+        // 상세 행: 성향은 키별 한 줄(`키: 값`), 요약은 전문을 pre-wrap으로 — 값은 전부 esc() 통과
+        var detail = ent.map(function(e){ return '<div class="p-kv"><b>'+esc(e[0])+':</b> '+esc(e[1])+'</div>'; }).join('')
+          + (sum ? '<div class="p-sum">'+esc(sum)+'</div>' : '');
+        if(!detail) detail = '<span class="muted">내용 없음</span>';
+        return '<tr class="p-row"><td><span class="caret">▸</span>'+esc(p.name)+' <span class="role-pill '+esc(p.role)+'">'+(roleLabel[p.role]||esc(p.role))+'</span></td>'
           +'<td class="clamp" title="'+esc(tl)+'">'+esc(tl)+'</td>'
           +'<td class="clamp" title="'+esc(sum)+'">'+esc(sum)+'</td>'
           +'<td>'+(Number(p.msg_total)||0)+'건</td>'
-          +'<td>'+fmtDT(p.updated_at)+'</td></tr>';
+          +'<td>'+fmtDT(p.updated_at)+'</td></tr>'
+          +'<tr class="p-detail" style="display:none"><td colspan="5">'+detail+'</td></tr>';
       }).join('');
     }).catch(function(){ prows.innerHTML='<tr><td colspan="5" class="muted">서버 연결 실패</td></tr>'; });
   }
+  // 행 클릭 → 바로 아래 상세 행 토글 (여러 행 동시 펼침 허용, 위임 방식이라 재렌더에도 안전)
+  prows.addEventListener('click', function(ev){
+    var tr=ev.target;
+    while(tr && tr.tagName!=='TR') tr=tr.parentNode;
+    if(!tr || (' '+tr.className+' ').indexOf(' p-row ')===-1) return;
+    var det=tr.nextElementSibling;
+    if(!det || (' '+det.className+' ').indexOf(' p-detail ')===-1) return;
+    var open = det.style.display==='none';
+    det.style.display = open ? '' : 'none';
+    var c=tr.querySelector('.caret');
+    if(c) c.textContent = open ? '▾' : '▸';
+  });
 
   document.getElementById('roleSel').addEventListener('change', function(){
     document.getElementById('extraDoctor').style.display = this.value==='doctor'?'':'none';
