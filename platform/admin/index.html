@@ -38,6 +38,7 @@
   tr.p-detail td{ background:var(--page); font-size:12.5px; padding:12px 14px 14px 29px; }
   tr.p-detail .p-kv{ margin:2px 0; }
   tr.p-detail .p-sum{ white-space:pre-wrap; margin-top:8px; }
+  .p-desc{ font-size:11px; color:var(--muted); margin:2px 0 10px; }
 </style>
 </head>
 <body data-role="admin">
@@ -88,9 +89,20 @@
   <!-- P3: AI 페르소나 (관리자 전용 열람 — 요약·성향은 LLM 생성 텍스트라 반드시 esc 처리) -->
   <div class="card pcard">
     <div class="sec-t"><h2>AI 페르소나</h2><span class="muted" id="pcnt"></span></div>
+    <div class="p-desc">대화에서 자동 학습됨</div>
     <table class="users">
       <thead><tr><th>사용자</th><th>성향</th><th>요약</th><th>누적 대화</th><th>갱신 시각</th></tr></thead>
       <tbody id="prows"><tr><td colspan="5" class="muted">불러오는 중…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- P3 확장: 의사 진료 페르소나 (설정형 — users.profile.persona 열람, /api/admin/users 응답 재사용) -->
+  <div class="card pcard">
+    <div class="sec-t"><h2>의사 진료 페르소나</h2><span class="muted" id="dcnt"></span></div>
+    <div class="p-desc">설정형 · 환자 상담 챗에 적용</div>
+    <table class="users">
+      <thead><tr><th>의사</th><th>진료과</th><th>소개</th><th>말투</th></tr></thead>
+      <tbody id="drows"><tr><td colspan="4" class="muted">불러오는 중…</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -129,7 +141,40 @@
           +'<td>'+esc(info(u.profile||{},u.role))+'</td>'
           +'<td>'+fmtDT(u.created_at,true)+'</td></tr>';
       }).join('');
-    }).catch(function(){ rows.innerHTML='<tr><td colspan="6" class="muted">서버 연결 실패</td></tr>'; });
+      renderDoctors(d.users); // 의사 진료 페르소나 패널 — 같은 응답 재사용 (추가 fetch 없음)
+    }).catch(function(){
+      rows.innerHTML='<tr><td colspan="6" class="muted">서버 연결 실패</td></tr>';
+      drows.innerHTML='<tr><td colspan="4" class="muted">서버 연결 실패</td></tr>';
+    });
+  }
+
+  // P3 확장: 의사 진료 페르소나(users.profile.persona, 설정형) 열람.
+  // AI 페르소나 패널과 동일한 p-row/p-detail 펼침 패턴 재사용. 값은 전부 esc() 통과.
+  var drows=document.getElementById('drows'), dcnt=document.getElementById('dcnt');
+  var DOC_P_KEYS=['말투','성격','진료스타일','소개'];
+  function renderDoctors(users){
+    var docs=users.filter(function(u){ return u.role==='doctor'; });
+    if(!docs.length){ drows.innerHTML='<tr><td colspan="4" class="muted">의사 계정이 없습니다</td></tr>'; dcnt.textContent='0명 설정'; return; }
+    var setN=0;
+    drows.innerHTML = docs.map(function(u){
+      var prof=u.profile||{};
+      var per=(prof.persona && typeof prof.persona==='object' && !Array.isArray(prof.persona)) ? prof.persona : null;
+      var keys=per ? DOC_P_KEYS.filter(function(k){ return typeof per[k]==='string' && per[k].trim(); }) : [];
+      var nameCell=esc(u.name)+' <span class="role-pill doctor">'+roleLabel.doctor+'</span>';
+      if(!keys.length){ // 미설정 — 캐럿·상세 없음(클릭 무동작)
+        return '<tr><td><span class="caret"></span>'+nameCell+'</td><td>'+esc(prof.department||'')+'</td>'
+          +'<td class="muted" colspan="2">미설정</td></tr>';
+      }
+      setN++;
+      var intro=per['소개']||'', tone=per['말투']||'';
+      var detail=keys.map(function(k){ return '<div class="p-kv"><b>'+esc(k)+':</b> '+esc(per[k].trim())+'</div>'; }).join('');
+      return '<tr class="p-row"><td><span class="caret">▸</span>'+nameCell+'</td>'
+        +'<td>'+esc(prof.department||'')+'</td>'
+        +'<td class="clamp" title="'+esc(intro)+'">'+esc(intro)+'</td>'
+        +'<td class="clamp" title="'+esc(tone)+'">'+esc(tone)+'</td></tr>'
+        +'<tr class="p-detail" style="display:none"><td colspan="4">'+detail+'</td></tr>';
+    }).join('');
+    dcnt.textContent=setN+'명 설정';
   }
 
   // P3: AI 페르소나 목록. summary/traits는 사용자 발화 기반 LLM 생성 텍스트(저장형 XSS 벡터)라
@@ -171,18 +216,23 @@
       }).join('');
     }).catch(function(){ prows.innerHTML='<tr><td colspan="5" class="muted">서버 연결 실패</td></tr>'; });
   }
-  // 행 클릭 → 바로 아래 상세 행 토글 (여러 행 동시 펼침 허용, 위임 방식이라 재렌더에도 안전)
-  prows.addEventListener('click', function(ev){
-    var tr=ev.target;
-    while(tr && tr.tagName!=='TR') tr=tr.parentNode;
-    if(!tr || (' '+tr.className+' ').indexOf(' p-row ')===-1) return;
-    var det=tr.nextElementSibling;
-    if(!det || (' '+det.className+' ').indexOf(' p-detail ')===-1) return;
-    var open = det.style.display==='none';
-    det.style.display = open ? '' : 'none';
-    var c=tr.querySelector('.caret');
-    if(c) c.textContent = open ? '▾' : '▸';
-  });
+  // 행 클릭 → 바로 아래 상세 행 토글 (여러 행 동시 펼침 허용, 위임 방식이라 재렌더에도 안전).
+  // AI 페르소나·의사 진료 페르소나 두 tbody가 같은 패턴을 공유한다.
+  function bindToggle(tbody){
+    tbody.addEventListener('click', function(ev){
+      var tr=ev.target;
+      while(tr && tr.tagName!=='TR') tr=tr.parentNode;
+      if(!tr || (' '+tr.className+' ').indexOf(' p-row ')===-1) return;
+      var det=tr.nextElementSibling;
+      if(!det || (' '+det.className+' ').indexOf(' p-detail ')===-1) return;
+      var open = det.style.display==='none';
+      det.style.display = open ? '' : 'none';
+      var c=tr.querySelector('.caret');
+      if(c) c.textContent = open ? '▾' : '▸';
+    });
+  }
+  bindToggle(prows);
+  bindToggle(drows);
 
   document.getElementById('roleSel').addEventListener('change', function(){
     document.getElementById('extraDoctor').style.display = this.value==='doctor'?'':'none';
