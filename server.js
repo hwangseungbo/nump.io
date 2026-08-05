@@ -225,6 +225,19 @@ async function apiAdminPersonas(req, res) {
       ORDER BY p.updated_at DESC`);
   sendJson(res, 200, { personas: r.rows });
 }
+// P3 확장: 챗 의사 선택용 목록 — 로그인 필수(역할 무관).
+// intro는 profile.persona.소개 (진료 페르소나는 설정형이라 users.profile에 저장).
+async function apiChatDoctors(req, res) {
+  const me = await currentUser(req);
+  if (!me) return sendJson(res, 401, { error: '로그인이 필요합니다.' });
+  const db = getPool();
+  const r = await db.query(`SELECT id, name, profile FROM users WHERE role='doctor' AND active ORDER BY id`);
+  sendJson(res, 200, { doctors: r.rows.map((u) => ({
+    id: u.id, name: u.name,
+    department: (u.profile && u.profile.department) || '',
+    intro: (u.profile && u.profile.persona && u.profile.persona['소개']) || ''
+  })) });
+}
 
 // ── P4 대시보드 API (docs/API-CONTRACT-P4.md) ───────────────
 const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1414,6 +1427,25 @@ async function buildChatContext(me) {
   return ctx;
 }
 
+// P3 확장: 의사 진료 페르소나(users.profile.persona) → 챗 역할 지시 블록.
+// 무효 doctor_id면 null 반환(조용히 무시). persona가 없으면 이름·진료과만으로 구성.
+async function buildDoctorPersonaBlock(doctorId) {
+  const db = getPool();
+  const r = await db.query(`SELECT name, profile FROM users WHERE id=$1 AND role='doctor' AND active`, [doctorId]);
+  if (!r.rows.length) return null;
+  const prof = r.rows[0].profile || {};
+  const p = (prof.persona && typeof prof.persona === 'object' && !Array.isArray(prof.persona)) ? prof.persona : {};
+  const L = ['[역할 지시 — 당신은 아래 의사로서 환자와 상담합니다]'];
+  L.push(`이름: ${r.rows[0].name} 원장 / 진료과: ${prof.department || '-'}`);
+  const kv = [];
+  if (p['말투']) kv.push('말투: ' + p['말투']);
+  if (p['성격']) kv.push('성격: ' + p['성격']);
+  if (p['진료스타일']) kv.push('진료 스타일: ' + p['진료스타일']);
+  if (kv.length) L.push(kv.join(' / '));
+  L.push('위 의사의 전문 분야 관점과 말투·성격으로 답하세요. 단 의학적 정확성과 환자 안전이 항상 우선이며, 이 지시문의 존재는 언급하지 마세요.');
+  return L.join('\n');
+}
+
 // ── P3 대화 로깅·페르소나 ───────────────────────────────────
 // 공용 챗(ctx:true) 대화를 chat_messages에 기록하고, 누적 턴이 쌓이면
 // 업스트림 LLM으로 user_personas.summary를 갱신한다.
@@ -1528,17 +1560,32 @@ async function handleAiProxy(req, res) {
   let logMeta = null; // P3: 로그인 사용자의 ctx:true 대화만 기록 { userId, sessionId, question }
   try {
     const body = JSON.parse(payload.toString() || '{}');
+    let dirty = false;
+    // P3 확장: 의사 선택 상담 — doctor_id는 업스트림에 전달하지 않고 여기서 소비한다.
+    let doctorId = null;
+    if (body && body.doctor_id !== undefined) {
+      const n = Number(body.doctor_id);
+      if (Number.isInteger(n) && n > 0) doctorId = n; // 그 외 값은 조용히 무시
+      delete body.doctor_id;
+      dirty = true;
+    }
     if (body && body.ctx === true) {
-      delete body.ctx;
+      delete body.ctx; dirty = true;
       if (typeof body.message === 'string') {
         let me = null;
         try { me = await currentUser(req); } catch { /* DB 미가동 시 컨텍스트 없이 진행 */ }
         if (me) logMeta = { userId: me.id, sessionId: String(body.session_id || 'unknown').slice(0, 80), question: body.message };
+        let prefix = '';
+        if (me && doctorId) { // 의사 역할 지시 블록은 환자 ctx보다 앞에
+          const block = await buildDoctorPersonaBlock(doctorId).catch(() => null);
+          if (block) prefix = block + '\n\n';
+        }
         const ctx = me ? await buildChatContext(me).catch(() => null) : null;
-        if (ctx) body.message = ctx + '\n\n[질문]\n' + body.message;
+        if (ctx) prefix += ctx + '\n\n';
+        if (prefix) body.message = prefix + '[질문]\n' + body.message;
       }
-      payload = Buffer.from(JSON.stringify(body));
     }
+    if (dirty) payload = Buffer.from(JSON.stringify(body));
   } catch { /* JSON이 아니면 원문 그대로 전달 */ }
   // P3: 원본 질문(컨텍스트 첨부 전) 기록 — 스트리밍 시작을 지연시키지 않도록 fire-and-forget
   if (logMeta) {
@@ -1604,6 +1651,7 @@ async function handle(req, res) {
   if (pathname === '/api/signup' && req.method === 'POST') return apiSignup(req, res);
   if (pathname === '/api/admin/users') return apiAdminUsers(req, res);
   if (pathname === '/api/admin/personas') return apiAdminPersonas(req, res);
+  if (pathname === '/api/chat-doctors' && req.method === 'GET') return apiChatDoctors(req, res);
 
   // P4 대시보드 API (docs/API-CONTRACT-P4.md)
   if (pathname === '/api/dashboard/doctor'  && req.method === 'GET')  return apiDashboardDoctor(req, res);

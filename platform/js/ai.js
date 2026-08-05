@@ -32,6 +32,40 @@
   var streaming = false;
   // NUMP 챗봇은 세션 기반(서버가 히스토리 관리). 페이지 단위로 고정 세션 ID 사용.
   var sessionId = 'bn-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+  var baseSessionId = sessionId;
+  var doctorSel = null; // P3 확장: 의사 선택 셀렉트 (환자 대시보드 전용)
+
+  // P3 확장: 환자 대시보드에서만 의사 선택 셀렉트 노출 — 선택한 의사의 진료
+  // 페르소나 스타일로 상담. 목록 로딩 실패 시 셀렉트 없이 기본 챗 유지.
+  if (document.body.getAttribute('data-role') === 'patient') {
+    fetch('/api/chat-doctors').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.doctors || !d.doctors.length) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'ai-doc-pick';
+      wrap.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:0 0 6px;font-size:11px;color:var(--muted,#9aa7b0);';
+      var lab = document.createElement('span');
+      lab.textContent = '상담 스타일';
+      doctorSel = document.createElement('select');
+      doctorSel.style.cssText = 'font-family:inherit;font-size:11px;color:inherit;background:transparent;border:1px solid var(--line,#e2e8e2);border-radius:8px;padding:3px 6px;outline:none;cursor:pointer;';
+      var opt0 = document.createElement('option');
+      opt0.value = ''; opt0.textContent = 'AI 기본 상담';
+      doctorSel.appendChild(opt0);
+      d.doctors.forEach(function (doc) {
+        var o = document.createElement('option');
+        o.value = String(doc.id);
+        o.textContent = doc.name + ' 원장' + (doc.department ? ' · ' + doc.department : '');
+        if (doc.intro) o.title = doc.intro;
+        doctorSel.appendChild(o);
+      });
+      // 의사별 세션 분리 — 업스트림 히스토리에 스타일이 섞이지 않게
+      doctorSel.addEventListener('change', function () {
+        sessionId = doctorSel.value ? baseSessionId + '-d' + doctorSel.value : baseSessionId;
+      });
+      wrap.appendChild(lab); wrap.appendChild(doctorSel);
+      var f = box.querySelector('.ai-field');
+      if (f) box.insertBefore(wrap, f); else box.appendChild(wrap);
+    }).catch(function () { /* 실패 시 셀렉트 없이 기본 챗 */ });
+  }
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -83,10 +117,12 @@
 
     var raw = '';
     try {
+      var payload = { session_id: sessionId, message: text, ctx: true };
+      if (doctorSel && doctorSel.value) payload.doctor_id = Number(doctorSel.value); // 의사 스타일 상담
       var resp = await fetch('/api/medgemma-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: text, ctx: true })
+        body: JSON.stringify(payload)
       });
       if (!resp.ok || !resp.body) throw new Error('서버 응답 오류 (' + resp.status + ')');
       var reader = resp.body.getReader();
