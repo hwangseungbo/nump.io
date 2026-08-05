@@ -50,17 +50,35 @@
       var opt0 = document.createElement('option');
       opt0.value = ''; opt0.textContent = 'AI 기본 상담';
       doctorSel.appendChild(opt0);
+      var docNames = {}; // id → 이름 (인사말 개인화용)
       d.doctors.forEach(function (doc) {
         var o = document.createElement('option');
         o.value = String(doc.id);
         o.textContent = doc.name + ' 원장' + (doc.department ? ' · ' + doc.department : '');
         if (doc.intro) o.title = doc.intro;
+        docNames[String(doc.id)] = doc.name;
         doctorSel.appendChild(o);
       });
+      // 인사말 개인화 — 의사 선택 시 부제를 "○○○ 원장님께 무엇이든 물어보세요"로.
+      // 제목 요소를 못 찾아도 셀렉트·챗은 정상 동작 (이름은 DB 유래라 반드시 textContent).
+      var subEl = box.querySelector('.ai-head .as');
+      var subOrig = subEl ? subEl.textContent : '';
+      function updateHead() {
+        if (!subEl) return;
+        var nm = docNames[doctorSel.value];
+        subEl.textContent = nm ? '· ' + nm + ' 원장님께 무엇이든 물어보세요' : subOrig;
+      }
       // 의사별 세션 분리 — 업스트림 히스토리에 스타일이 섞이지 않게
       doctorSel.addEventListener('change', function () {
         sessionId = doctorSel.value ? baseSessionId + '-d' + doctorSel.value : baseSessionId;
+        updateHead();
       });
+      // 최근 진료 의사 자동 매칭 — 목록에 있으면 자동 선택 + 세션도 그 의사로 시작
+      if (d.matched_doctor_id != null) {
+        doctorSel.value = String(d.matched_doctor_id); // 목록에 없으면 ''로 남음
+        if (doctorSel.value) sessionId = baseSessionId + '-d' + doctorSel.value;
+      }
+      updateHead();
       wrap.appendChild(lab); wrap.appendChild(doctorSel);
       var f = box.querySelector('.ai-field');
       if (f) box.insertBefore(wrap, f); else box.appendChild(wrap);

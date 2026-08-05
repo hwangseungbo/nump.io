@@ -227,16 +227,39 @@ async function apiAdminPersonas(req, res) {
 }
 // P3 확장: 챗 의사 선택용 목록 — 로그인 필수(역할 무관).
 // intro는 profile.persona.소개 (진료 페르소나는 설정형이라 users.profile에 저장).
+// 환자면 matched_doctor_id 포함: ① 최근 진료의 담당 의사(active) → ② 최근접 예약 의사 → ③ null.
 async function apiChatDoctors(req, res) {
   const me = await currentUser(req);
   if (!me) return sendJson(res, 401, { error: '로그인이 필요합니다.' });
   const db = getPool();
   const r = await db.query(`SELECT id, name, profile FROM users WHERE role='doctor' AND active ORDER BY id`);
-  sendJson(res, 200, { doctors: r.rows.map((u) => ({
+  const out = { doctors: r.rows.map((u) => ({
     id: u.id, name: u.name,
     department: (u.profile && u.profile.department) || '',
     intro: (u.profile && u.profile.persona && u.profile.persona['소개']) || ''
-  })) });
+  })) };
+  if (me.role === 'patient') {
+    out.matched_doctor_id = null;
+    try {
+      const p = await myPatientRow(db, me);
+      if (p) {
+        const activeIds = new Set(r.rows.map((u) => u.id)); // 목록의 active 의사만 매칭 대상
+        const en = await db.query(
+          `SELECT doctor_id FROM encounters WHERE patient_id=$1 AND doctor_id IS NOT NULL
+            ORDER BY visited_at DESC LIMIT 1`, [p.id]);
+        if (en.rows.length && activeIds.has(en.rows[0].doctor_id)) {
+          out.matched_doctor_id = en.rows[0].doctor_id;
+        } else {
+          const ap = await db.query(
+            `SELECT doctor_id FROM appointments
+              WHERE patient_id=$1 AND status='scheduled' AND scheduled_at >= now() AND doctor_id IS NOT NULL
+              ORDER BY scheduled_at LIMIT 1`, [p.id]);
+          if (ap.rows.length && activeIds.has(ap.rows[0].doctor_id)) out.matched_doctor_id = ap.rows[0].doctor_id;
+        }
+      }
+    } catch (e) { console.error('[persona] 의사 자동 매칭 실패:', e.message); }
+  }
+  sendJson(res, 200, out);
 }
 
 // ── P4 대시보드 API (docs/API-CONTRACT-P4.md) ───────────────
