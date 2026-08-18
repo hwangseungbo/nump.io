@@ -290,6 +290,32 @@
     modal.appendChild(lbTime);
     modal.appendChild(selTime);
 
+    // P2: 진료과 선택 — 목록은 /api/chat-doctors의 doctors[].department에서 중복 제거.
+    // 로딩 실패 시(구서버 등) 안내 옵션만 남고, 그 경우 선택 없이도 신청 가능(기존 동작 유지).
+    var lbDept = el('label', null, '진료과');
+    var selDept = document.createElement('select');
+    selDept.id = 'bnApDept';
+    var deptLoaded = false;
+    var opt0 = document.createElement('option');
+    opt0.value = ''; opt0.textContent = '진료과를 선택하세요';
+    selDept.appendChild(opt0);
+    fetch('/api/chat-doctors').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !Array.isArray(d.doctors)) return;
+      var seen = {};
+      d.doctors.forEach(function (doc) {
+        var dep = doc.department;
+        if (!dep || seen[dep]) return;
+        seen[dep] = true;
+        var o = document.createElement('option');
+        o.value = dep;
+        o.textContent = dep; // DB 유래 문자열 — textContent
+        selDept.appendChild(o);
+      });
+      deptLoaded = selDept.options.length > 1;
+    }).catch(function () { /* 실패 시 진료과 없이 기존 흐름 */ });
+    modal.appendChild(lbDept);
+    modal.appendChild(selDept);
+
     var lbKind = el('label', null, '종류');
     var selKind = document.createElement('select');
     selKind.id = 'bnApKind';
@@ -336,12 +362,16 @@
       var kind = selKind.value;
       if (!date) { showErr('예약 날짜를 선택해 주세요.'); return; }
       if (date < min) { showErr('내일 이후 날짜만 선택할 수 있습니다.'); return; }
+      // P2: 진료과 목록이 정상 로드됐으면 필수 선택
+      if (deptLoaded && !selDept.value) { showErr('진료과를 선택해 주세요.'); return; }
 
+      var payload = { date: date, time: time, kind: kind };
+      if (selDept.value) payload.department = selDept.value;
       submit.disabled = true;
       fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: date, time: time, kind: kind })
+        body: JSON.stringify(payload)
       }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) {
           return { ok: r.ok, status: r.status, body: j };
@@ -357,7 +387,10 @@
           return;
         }
         close();
-        toast('예약이 신청되었습니다');
+        // P2: 배정된 의사 안내 — 서버 응답의 진료과·의사명(DB 유래)은 toast가 textContent로 렌더
+        if (res.body && res.body.doctorName)
+          toast((res.body.department ? res.body.department + ' ' : '') + res.body.doctorName + ' 원장님으로 접수되었습니다');
+        else toast('예약이 신청되었습니다');
         loadDashboard(); // 일정 패널 갱신
         refreshActiveView(); // P5: appt 뷰 활성 시 예약 표 재조회
       }).catch(function (err) {

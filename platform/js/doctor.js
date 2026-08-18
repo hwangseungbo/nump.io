@@ -635,29 +635,56 @@
     load();
   }
 
+  /* ---------- P2: '내 진료만 | 병원 전체' 스코프 토글 (기록·통계 뷰 공용, .vtab 재사용) ---------- */
+  function scopeTabs(onChange) {
+    var tabs = h('div', 'vtabs');
+    var mine = h('button', 'vtab on', '내 진료만'); mine.type = 'button';
+    var all = h('button', 'vtab', '병원 전체'); all.type = 'button';
+    function set(isAll) {
+      mine.classList.toggle('on', !isAll);
+      all.classList.toggle('on', isAll);
+      onChange(isAll);
+    }
+    mine.addEventListener('click', function () { set(false); });
+    all.addEventListener('click', function () { set(true); });
+    tabs.appendChild(mine); tabs.appendChild(all);
+    return tabs;
+  }
+
   /* ---------- 뷰: 진료 기록 (records, 계약 1-4) ---------- */
   function renderRecordsView() {
-    viewHost.appendChild(viewHead('진료 기록', '전체 진료 기록 (최신순, 20건씩)'));
+    var head = viewHead('진료 기록', '내 진료 기록 (최신순, 20건씩)');
+    viewHost.appendChild(head);
+    var sub = head.querySelector('.vh-sub');
+    var scopeAll = false; // P2: 기본은 내 진료만
     var card = h('div', 'card');
     viewHost.appendChild(card);
+    card.appendChild(scopeTabs(function (isAll) {
+      scopeAll = isAll;
+      if (sub) sub.textContent = (isAll ? '병원 전체' : '내') + ' 진료 기록 (최신순, 20건씩)';
+      load(1);
+    }));
+    var listWrap = h('div', null);
+    listWrap.style.marginTop = '12px';
+    card.appendChild(listWrap);
     function load(page) {
-      card.innerHTML = '';
-      card.appendChild(loadingBox());
-      getJson('/api/encounters?page=' + page).then(function (d) {
-        card.innerHTML = '';
+      listWrap.innerHTML = '';
+      listWrap.appendChild(loadingBox());
+      getJson('/api/encounters?page=' + page + (scopeAll ? '&scope=all' : '')).then(function (d) {
+        listWrap.innerHTML = '';
         var rows = (d && d.rows) || [];
-        if (!rows.length) { card.appendChild(h('div', 'empty', '진료 기록이 없습니다')); return; }
+        if (!rows.length) { listWrap.appendChild(h('div', 'empty', '진료 기록이 없습니다')); return; }
         var t = makeTable(['일시', '환자', '진료과', '진단', '담당의', '메모']);
         rows.forEach(function (r) {
           t.tbody.appendChild(trow([r.date + ' ' + (r.time || ''), bcell(r.patient), r.department, r.dx, r.doctor, r.note]));
         });
-        card.appendChild(t.wrap);
+        listWrap.appendChild(t.wrap);
         var totalPages = Math.max(1, Math.ceil((d.total || rows.length) / 20));
-        if (totalPages > 1) card.appendChild(pager(d.page || page, totalPages, load));
+        if (totalPages > 1) listWrap.appendChild(pager(d.page || page, totalPages, load));
       }).catch(function (e) {
         console.warn('진료 기록 조회 실패:', e);
-        card.innerHTML = '';
-        card.appendChild(emptyBox());
+        listWrap.innerHTML = '';
+        listWrap.appendChild(emptyBox());
       });
     }
     load(1);
@@ -846,18 +873,24 @@
 
   /* ---------- 뷰: 통계/리포트 (stats, 계약 1-10) ---------- */
   function renderStatsView() {
-    var head = viewHead('통계 / 리포트', '이번 달 진료 통계');
+    var head = viewHead('통계 / 리포트', '이번 달 내 진료 통계');
     viewHost.appendChild(head);
     var sub = head.querySelector('.vh-sub');
+    var scopeAll = false; // P2: 기본은 내 진료만
+    var tabs = scopeTabs(function (isAll) { scopeAll = isAll; load(); });
+    tabs.style.marginBottom = '14px';
+    viewHost.appendChild(tabs);
     var wrap = h('div', null);
     wrap.style.display = 'flex';
     wrap.style.flexDirection = 'column';
     wrap.style.gap = '16px';
     viewHost.appendChild(wrap);
+    function load() {
+    wrap.innerHTML = '';
     wrap.appendChild(loadingBox());
-    getJson('/api/stats/doctor').then(function (d) {
+    getJson('/api/stats/doctor' + (scopeAll ? '?scope=all' : '')).then(function (d) {
       wrap.innerHTML = '';
-      if (sub && d.month) sub.textContent = d.month + ' 진료 통계';
+      if (sub && d.month) sub.textContent = d.month + (scopeAll ? ' 병원 전체 진료 통계' : ' 내 진료 통계');
 
       // 숫자 카드 (기존 .stat4/.s4 마크업 재사용)
       var numCard = h('div', 'card');
@@ -907,6 +940,8 @@
       wrap.innerHTML = '';
       wrap.appendChild(emptyBox());
     });
+    }
+    load();
   }
 
   /* ---------- 뷰: 설정 (settings, 계약 1-11) ---------- */

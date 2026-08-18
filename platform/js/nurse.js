@@ -145,7 +145,7 @@
     });
     var defs = [['med', '투약 알림', '#view-meds'], ['lab', '검사 결과 확인', '#view-tests'],
                 ['care', '처치 예정', '#view-schedule'], ['admission', '입·퇴원 예정', '#view-admission'],
-                ['docs', '서류 요청', '#view-docs']];
+                ['docs', '서류 요청 (병원 전체)', '#view-docs']]; // P2: docs만 병원 전체 유지 — 라벨로 명시
     bellItems = [];
     defs.forEach(function (d) {
       if (alerts[d[0]] > 0) bellItems.push({ t: d[1] + ' ' + alerts[d[0]] + '건', h: d[2] });
@@ -663,9 +663,12 @@
     load();
   }
 
-  /* ---------- 뷰: 진료 일정 (scope=ward) ---------- */
+  /* ---------- 뷰: 진료 일정 (P2: 기본 내 병동, 전체 보기 토글) ---------- */
   function renderScheduleView(host) {
-    host.appendChild(viewHead('진료 일정', '병동 전체 예약 일정 (병실 포함)'));
+    var head = viewHead('진료 일정', '내 병동 입원 환자 일정 (병실 포함)');
+    host.appendChild(head);
+    var sub = head.querySelector('.vh-sub');
+    var scopeAll = false; // P2: 기본은 병동 스코프
     var card = el('div', 'card');
     var bar = el('div', 'vw-toolbar');
     var prev = vbtn('◀', 'ghost sm');
@@ -674,20 +677,29 @@
     dateIn.value = todayISO();
     var next = vbtn('▶', 'ghost sm');
     var todayBtn = vbtn('오늘', 'ghost sm');
+    var scopeBtn = vbtn('병원 전체 보기', 'ghost sm');
     var lab = el('span', 'vw-datelabel', '');
     bar.appendChild(prev); bar.appendChild(dateIn); bar.appendChild(next);
-    bar.appendChild(todayBtn); bar.appendChild(lab);
+    bar.appendChild(todayBtn); bar.appendChild(scopeBtn); bar.appendChild(lab);
     card.appendChild(bar);
     var box = el('div');
     card.appendChild(box);
     host.appendChild(card);
 
+    scopeBtn.addEventListener('click', function () {
+      scopeAll = !scopeAll;
+      scopeBtn.textContent = scopeAll ? '내 병동만 보기' : '병원 전체 보기';
+      load();
+    });
     function load() {
       box.innerHTML = '';
-      fetchJson('/api/appointments?date=' + dateIn.value + '&scope=ward').then(function (d) {
+      fetchJson('/api/appointments?date=' + dateIn.value + '&scope=' + (scopeAll ? 'all' : 'ward')).then(function (d) {
         lab.textContent = d.dateLabel || '';
+        // 스코프 라벨 명시 — 병동명은 서버가 내려준 실제 값 (textContent)
+        if (sub) sub.textContent = scopeAll ? '병원 전체 예약 일정 (병실 포함)'
+          : (d.ward ? d.ward + ' 일정 (입원 환자, 병실 포함)' : '내 병동 입원 환자 일정 (병실 포함)');
         var rows = Array.isArray(d.rows) ? d.rows : [];
-        if (!rows.length) { box.appendChild(el('div', 'empty', '해당 날짜에 일정이 없습니다')); return; }
+        if (!rows.length) { box.appendChild(el('div', 'empty', scopeAll ? '해당 날짜에 일정이 없습니다' : '해당 날짜에 내 병동 일정이 없습니다')); return; }
         var t = makeTable(['시간', '환자', '성별/나이', '병실', '구분', '상태']);
         rows.forEach(function (r) {
           var tr = document.createElement('tr');

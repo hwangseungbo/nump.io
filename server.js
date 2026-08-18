@@ -386,23 +386,28 @@ async function apiDashboardDoctor(req, res) {
     db.query(`SELECT count(*)::int AS c FROM appointments
                WHERE doctor_id=$1 AND status='no_show'
                  AND date_trunc('month', scheduled_at)=date_trunc('month', now())`, [doctorId]),
+    // P2: 이번 달 진료 수는 "내 진료"만 (병원 전체 → 담당의 스코프)
     db.query(`SELECT count(*)::int AS c FROM encounters
-               WHERE date_trunc('month', visited_at)=date_trunc('month', now())`),
+               WHERE doctor_id=$1 AND date_trunc('month', visited_at)=date_trunc('month', now())`, [doctorId]),
     // 최근 encounter의 환자 — 통계 시드가 미래 시각 포함이므로 now() 필터 없이 조회 (DB 시드 규약)
     db.query(`SELECT patient_id FROM encounters ORDER BY visited_at DESC LIMIT 1`),
     db.query(`SELECT count(*)::int AS c FROM documents WHERE status='requested'`),
     getDocRequests(db)
   ]);
-  let firstScheduled = true;
+  // P2: '진료 중'은 시간 기반 — scheduled이면서 예약 시각 <= 지금 < 예약 시각+30분인 첫 건만.
+  const nowMs = Date.now();
+  let nowMarked = false;
   const schedule = schedR.rows.map((r) => {
     let status = 'done';
     if (r.status === 'scheduled') {
-      status = firstScheduled ? 'now' : 'wait';
-      firstScheduled = false;
+      const t = new Date(r.scheduled_at).getTime();
+      if (!nowMarked && t <= nowMs && nowMs < t + 30 * 60 * 1000) { status = 'now'; nowMarked = true; }
+      else status = 'wait';
     }
     return { time: fmtTime(r.scheduled_at), name: r.name, sex: r.sex, age: calcAge(r.birth_date), dx: r.dx, status };
   });
-  const waiting = schedR.rows.filter((r) => r.status === 'scheduled').length;
+  // P2: '진료 대기'에서 진료 중 1건 이중계산 제거
+  const waiting = schedR.rows.filter((r) => r.status === 'scheduled').length - (nowMarked ? 1 : 0);
   const recentPatient = recentR.rows.length ? await patientDetail(db, recentR.rows[0].patient_id) : null;
   sendJson(res, 200, {
     todayLabel: fmtDateKo(new Date()),
@@ -415,17 +420,23 @@ async function apiDashboardDoctor(req, res) {
   });
 }
 
+// P2: 요청자의 병동 결정 — 간호사는 본인 병동, admin 열람 시 첫 간호사의 병동 기준
+async function nurseWard(db, me) {
+  let ward = (me.profile && me.profile.ward) || null;
+  if (!ward) {
+    const w = await db.query(`SELECT profile->>'ward' AS w FROM users
+                               WHERE role='nurse' AND active AND profile->>'ward' IS NOT NULL ORDER BY id LIMIT 1`);
+    ward = w.rows.length ? w.rows[0].w : '내과 병동';
+  }
+  return ward;
+}
+
 // §2 GET /api/dashboard/nurse
 async function apiDashboardNurse(req, res) {
   const me = await requireRole(req, res, ['nurse']);
   if (!me) return;
   const db = getPool();
-  let ward = (me.profile && me.profile.ward) || null;
-  if (!ward) {                  // admin 열람 시 첫 간호사의 병동 기준
-    const w = await db.query(`SELECT profile->>'ward' AS w FROM users
-                               WHERE role='nurse' AND active AND profile->>'ward' IS NOT NULL ORDER BY id LIMIT 1`);
-    ward = w.rows.length ? w.rows[0].w : '내과 병동';
-  }
+  const ward = await nurseWard(db, me);
   const [sbR, cntR, patR, safetyR, medR, labR, careR, admR, docsAllR, memosR,
          inR, testR, surgR, docContactsR, notesR, schedR, docRequests] = await Promise.all([
     db.query(`SELECT count(*) FILTER (WHERE note_type='활력징후')::int AS vitals,
@@ -440,28 +451,32 @@ async function apiDashboardNurse(req, res) {
                ORDER BY a.room LIMIT 5`, [ward]),
     db.query(`SELECT event_type, count(*)::int AS c FROM safety_events
                WHERE date_trunc('month', occurred_at)=date_trunc('month', now()) GROUP BY event_type`),
-    db.query(`SELECT count(*)::int AS c FROM appointments
-               WHERE kind='투약' AND scheduled_at::date=CURRENT_DATE AND status<>'cancelled'`),
+    // P2: 투약·처치 알림은 병동 입원 환자 건만 (병원 전체 → 병동 스코프)
+    db.query(`SELECT count(*)::int AS c FROM appointments a
+               JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$1
+               WHERE a.kind='투약' AND a.scheduled_at::date=CURRENT_DATE AND a.status<>'cancelled'`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM lab_results WHERE tested_at >= CURRENT_DATE - 7`),
-    db.query(`SELECT count(*)::int AS c FROM appointments
-               WHERE kind='처치' AND scheduled_at::date=CURRENT_DATE AND status<>'cancelled'`),
+    db.query(`SELECT count(*)::int AS c FROM appointments a
+               JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$1
+               WHERE a.kind='처치' AND a.scheduled_at::date=CURRENT_DATE AND a.status<>'cancelled'`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM admissions
                WHERE status='admitted' AND discharge_due BETWEEN CURRENT_DATE AND CURRENT_DATE + 1`),
     db.query(`SELECT count(*)::int AS c FROM documents WHERE status='requested'`),
     db.query(`SELECT m.created_at, m.content, u.name, u.role
                 FROM memos m LEFT JOIN users u ON u.id=m.author_id
                ORDER BY m.created_at DESC LIMIT 3`),
-    db.query(`SELECT count(*)::int AS c FROM admissions WHERE status='admitted'`),
+    // P2: 병동 현황의 입원 수는 병동 스코프 (기존: 병원 전체)
+    db.query(`SELECT count(*)::int AS c FROM admissions WHERE status='admitted' AND ward=$1`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM appointments
                WHERE kind='검사' AND scheduled_at::date=CURRENT_DATE AND status<>'cancelled'`),
     db.query(`SELECT count(*)::int AS c FROM appointments
                WHERE kind='수술' AND scheduled_at::date=CURRENT_DATE AND status<>'cancelled'`),
     db.query(`SELECT name, profile FROM users WHERE role='doctor' AND active ORDER BY id`),
-    db.query(`SELECT n.note_type,
-                     (SELECT a.room FROM admissions a
-                       WHERE a.patient_id=n.patient_id AND a.status='admitted'
-                       ORDER BY a.admitted_at DESC LIMIT 1) AS room
-                FROM nursing_notes n ORDER BY n.created_at DESC LIMIT 5`),
+    // P2: 최근 간호기록도 병동 입원 환자 건만
+    db.query(`SELECT n.note_type, ad.room
+                FROM nursing_notes n
+                JOIN admissions ad ON ad.patient_id=n.patient_id AND ad.status='admitted' AND ad.ward=$1
+               ORDER BY n.created_at DESC LIMIT 5`, [ward]),
     // 오늘 일정 카드용 — 내 병동 입원 환자 대상의 오늘 예약만 시간순 최대 6건 (정적 목업 대체)
     db.query(`SELECT a.scheduled_at, a.kind, a.status, p.name, ad.room
                 FROM appointments a
@@ -692,13 +707,26 @@ async function apiCreateAppointment(req, res) {
     `SELECT 1 FROM appointments WHERE patient_id=$1 AND scheduled_at=$2 AND status='scheduled'`, [p.id, when]);
   if (dup.rows.length)
     return sendJson(res, 409, { error: '같은 시간에 이미 예약이 있습니다. 다른 시간을 선택해 주세요.' });
-  const d = await db.query(`SELECT id, profile FROM users WHERE role='doctor' AND active ORDER BY id LIMIT 1`);
-  const doctorId = d.rows.length ? d.rows[0].id : null;
-  const department = d.rows.length ? (d.rows[0].profile && d.rows[0].profile.department) || null : null;
+  // P2: 진료과 선택 — 해당 진료과 active 의사 중 id 최소 배정.
+  // department 부재/빈 값(구캐시 클라이언트)이면 기존처럼 첫 active 의사 배정.
+  const deptReq = String(body.department || '').trim();
+  let drow;
+  if (deptReq) {
+    const d = await db.query(
+      `SELECT id, name, profile FROM users
+        WHERE role='doctor' AND active AND profile->>'department' = $1 ORDER BY id LIMIT 1`, [deptReq]);
+    if (!d.rows.length) return sendJson(res, 400, { error: '선택할 수 없는 진료과입니다.' });
+    drow = d.rows[0];
+  } else {
+    const d = await db.query(`SELECT id, name, profile FROM users WHERE role='doctor' AND active ORDER BY id LIMIT 1`);
+    drow = d.rows.length ? d.rows[0] : null;
+  }
+  const doctorId = drow ? drow.id : null;
+  const department = drow ? (drow.profile && drow.profile.department) || null : null;
   await db.query(
     `INSERT INTO appointments (patient_id, doctor_id, scheduled_at, department, kind)
      VALUES ($1, $2, $3, $4, $5)`, [p.id, doctorId, when, department, kind]);
-  sendJson(res, 201, { ok: true });
+  sendJson(res, 201, { ok: true, doctorName: drow ? drow.name : null, department });
 }
 
 // §5 POST /api/memos (nurse, admin)
@@ -797,18 +825,32 @@ async function apiAppointmentsGet(req, res) {
   }
   const dateParam = `${day.getFullYear()}-${pad2(day.getMonth() + 1)}-${pad2(day.getDate())}`;
 
-  // nurse(또는 admin scope=ward): 의사 무관 전체 + room(입원 시)
-  if (me.role === 'nurse' || (me.role === 'admin' && scope === 'ward')) {
-    const r = await db.query(
-      `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date,
-              (SELECT ad.room FROM admissions ad
-                WHERE ad.patient_id=a.patient_id AND ad.status='admitted'
-                ORDER BY ad.admitted_at DESC LIMIT 1) AS room
-         FROM appointments a JOIN patients p ON p.id=a.patient_id
-        WHERE a.scheduled_at::date=$1::date
-        ORDER BY a.scheduled_at, a.id`, [dateParam]);
+  // nurse(또는 admin scope=ward/all): P2 — 기본은 내 병동 입원 환자 건만, ?scope=all이면 병원 전체
+  if (me.role === 'nurse' || (me.role === 'admin' && (scope === 'ward' || scope === 'all'))) {
+    const wardScoped = scope !== 'all';
+    let ward = null, r;
+    if (wardScoped) {
+      ward = await nurseWard(db, me);
+      r = await db.query(
+        `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date, ad.room
+           FROM appointments a JOIN patients p ON p.id=a.patient_id
+           JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$2
+          WHERE a.scheduled_at::date=$1::date
+          ORDER BY a.scheduled_at, a.id`, [dateParam, ward]);
+    } else {
+      r = await db.query(
+        `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date,
+                (SELECT ad.room FROM admissions ad
+                  WHERE ad.patient_id=a.patient_id AND ad.status='admitted'
+                  ORDER BY ad.admitted_at DESC LIMIT 1) AS room
+           FROM appointments a JOIN patients p ON p.id=a.patient_id
+          WHERE a.scheduled_at::date=$1::date
+          ORDER BY a.scheduled_at, a.id`, [dateParam]);
+    }
     return sendJson(res, 200, {
       dateLabel: fmtDateKo(day),
+      scope: wardScoped ? 'ward' : 'all',
+      ward: ward,
       rows: r.rows.map((x) => ({
         id: x.id, time: fmtTime(x.scheduled_at), name: x.name, sex: x.sex, age: calcAge(x.birth_date),
         kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status,
@@ -891,8 +933,13 @@ async function apiEncounters(req, res) {
     pidFilter = parseId(query.patient_id);
     if (!pidFilter) return sendJson(res, 400, { error: '잘못된 patient_id' });
   }
-  const where = `WHERE e.visited_at <= now()` + (pidFilter ? ` AND e.patient_id=$1` : '');
-  const params = pidFilter ? [pidFilter] : [];
+  // P2: 의사는 기본 "내 진료"만 (?scope=all이면 병원 전체). nurse/admin은 기존 동작 유지.
+  const docFilter = (me.role === 'doctor' && String(query.scope || '') !== 'all') ? me.id : null;
+  const conds = ['e.visited_at <= now()'];
+  const params = [];
+  if (pidFilter) { params.push(pidFilter); conds.push(`e.patient_id=$${params.length}`); }
+  if (docFilter) { params.push(docFilter); conds.push(`e.doctor_id=$${params.length}`); }
+  const where = 'WHERE ' + conds.join(' AND ');
   const [cntR, rowR] = await Promise.all([
     db.query(`SELECT count(*)::int AS c FROM encounters e ${where}`, params),
     db.query(
@@ -1238,18 +1285,22 @@ async function apiStatsDoctor(req, res) {
     const d = await db.query(`SELECT id FROM users WHERE role='doctor' AND active ORDER BY id LIMIT 1`);
     if (d.rows.length) doctorId = d.rows[0].id;
   }
+  // P2: 기본은 "내 진료" 스코프, ?scope=all이면 기존 병원 전체
+  const all = String(url.parse(req.url, true).query.scope || '') === 'all';
+  const docCond = all ? '' : ' AND doctor_id=$1';
+  const docParams = all ? [] : [doctorId];
   const now = new Date();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const [encR, noShowR, kindR, dailyR] = await Promise.all([
     db.query(`SELECT count(*)::int AS c FROM encounters
-               WHERE date_trunc('month', visited_at)=date_trunc('month', now())`),
+               WHERE date_trunc('month', visited_at)=date_trunc('month', now())${docCond}`, docParams),
     db.query(`SELECT count(*)::int AS c FROM appointments
                WHERE doctor_id=$1 AND status='no_show'
                  AND date_trunc('month', scheduled_at)=date_trunc('month', now())`, [doctorId]),
     db.query(`SELECT kind, count(*)::int AS c FROM appointments
-               WHERE date_trunc('month', scheduled_at)=date_trunc('month', now()) GROUP BY kind`),
+               WHERE date_trunc('month', scheduled_at)=date_trunc('month', now())${docCond} GROUP BY kind`, docParams),
     db.query(`SELECT extract(day FROM visited_at)::int AS d, count(*)::int AS c FROM encounters
-               WHERE date_trunc('month', visited_at)=date_trunc('month', now()) GROUP BY 1`)
+               WHERE date_trunc('month', visited_at)=date_trunc('month', now())${docCond} GROUP BY 1`, docParams)
   ]);
   const kindMap = new Map(kindR.rows.map((r) => [r.kind, r.c]));
   const dailyMap = new Map(dailyR.rows.map((r) => [r.d, r.c]));
@@ -1257,6 +1308,7 @@ async function apiStatsDoctor(req, res) {
   for (let d = 1; d <= lastDay; d++) daily.push({ day: d, count: dailyMap.get(d) || 0 });
   sendJson(res, 200, {
     month: `${now.getFullYear()}년 ${now.getMonth() + 1}월`,
+    scope: all ? 'all' : 'mine',
     encounters: encR.rows[0].c,
     noShow: noShowR.rows[0].c,
     byKind: APPT_KINDS.filter((k) => kindMap.get(k) > 0).map((k) => ({ kind: k, count: kindMap.get(k) })),
@@ -1269,16 +1321,17 @@ async function apiStatsNurse(req, res) {
   const me = await requireRole(req, res, ['nurse']);
   if (!me) return;
   const db = getPool();
+  const ward = await nurseWard(db, me); // P2: 입원·퇴원 수는 내 병동 스코프
   const now = new Date();
   const [noteR, safetyR, admR, dischR, doneR] = await Promise.all([
     db.query(`SELECT note_type, count(*)::int AS c FROM nursing_notes
                WHERE date_trunc('month', created_at)=date_trunc('month', now()) GROUP BY note_type`),
     db.query(`SELECT event_type, count(*)::int AS c FROM safety_events
                WHERE date_trunc('month', occurred_at)=date_trunc('month', now()) GROUP BY event_type`),
-    db.query(`SELECT count(*)::int AS c FROM admissions WHERE status='admitted'`),
+    db.query(`SELECT count(*)::int AS c FROM admissions WHERE status='admitted' AND ward=$1`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM admissions
-               WHERE status='discharged'
-                 AND date_trunc('month', COALESCE(discharge_due::timestamptz, admitted_at))=date_trunc('month', now())`),
+               WHERE status='discharged' AND ward=$1
+                 AND date_trunc('month', COALESCE(discharge_due::timestamptz, admitted_at))=date_trunc('month', now())`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM appointments
                WHERE status='done' AND scheduled_at::date=CURRENT_DATE`)
   ]);
