@@ -1406,6 +1406,37 @@ async function apiStatsNurse(req, res) {
   });
 }
 
+// M3: POST /api/vitals (nurse 전용) — 바이탈 입력 + '활력징후' 간호기록 자동 등록
+async function apiVitalPost(req, res) {
+  const me = await requireRole(req, res, ['nurse']);
+  if (!me) return;
+  const body = await readJsonBody(req);
+  if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
+  const pid = parseId(body.patient_id);
+  if (!pid) return sendJson(res, 400, { error: '잘못된 patient_id' });
+  const sys = Number(body.systolic), dia = Number(body.diastolic);
+  if (!Number.isInteger(sys) || sys < 60 || sys > 260)
+    return sendJson(res, 400, { error: '수축기 혈압은 60~260 사이 정수여야 합니다.' });
+  if (!Number.isInteger(dia) || dia < 30 || dia > 160)
+    return sendJson(res, 400, { error: '이완기 혈압은 30~160 사이 정수여야 합니다.' });
+  let glu = null;
+  if (body.glucose !== undefined && body.glucose !== null && String(body.glucose) !== '') {
+    glu = Number(body.glucose);
+    if (!Number.isInteger(glu) || glu < 30 || glu > 600)
+      return sendJson(res, 400, { error: '혈당은 30~600 사이 정수여야 합니다.' });
+  }
+  const db = getPool();
+  const p = await db.query(`SELECT id FROM patients WHERE id=$1`, [pid]);
+  if (!p.rows.length) return sendJson(res, 404, { error: '환자를 찾을 수 없습니다.' });
+  await db.query(
+    `INSERT INTO vitals (patient_id, measured_at, systolic, diastolic, glucose) VALUES ($1, now(), $2, $3, $4)`,
+    [pid, sys, dia, glu]);
+  await db.query(
+    `INSERT INTO nursing_notes (patient_id, nurse_id, note_type, content) VALUES ($1, $2, '활력징후', $3)`,
+    [pid, me.id, `혈압 ${sys}/${dia}${glu != null ? `, 혈당 ${glu}` : ''} 측정`]);
+  sendJson(res, 200, { ok: true });
+}
+
 // P3b: GET /api/handover?shift=day|evening|night — 간호 인계(핸드오버) 보드 (nurse 전용)
 // 근무조: day 07~15시 / evening 15~23시 / night 23~07시(자정 걸침).
 // night는 "가장 최근(또는 진행 중) 밤": 23시 이후면 금일 23시~익일 07시, 그 외는 전일 23시~금일 07시.
@@ -1468,6 +1499,7 @@ async function apiHandover(req, res) {
     patients: patR.rows.map((r) => {
       const v = vitMap.get(r.id);
       return {
+        patientId: r.id, // M3: 바이탈 입력 대상 지정용
         room: r.room || '', name: r.name, sex: r.sex, age: calcAge(r.birth_date), dx: r.dx,
         lastVital: v ? { time: fmtTime(v.measured_at), systolic: v.systolic, diastolic: v.diastolic, glucose: v.glucose } : null,
         notes: (noteMap.get(r.id) || []).map((n) => ({ time: fmtTime(n.created_at), type: n.note_type, content: n.content })),
@@ -1884,7 +1916,11 @@ async function handle(req, res) {
   if (pathname === '/api/encounters'    && req.method === 'GET') return apiEncounters(req, res);
   if (pathname === '/api/lab-results'   && req.method === 'GET') return apiLabResults(req, res);
   if (pathname === '/api/prescriptions' && req.method === 'GET') return apiPrescriptions(req, res);
-  if (pathname === '/api/vitals'        && req.method === 'GET') return apiVitals(req, res);
+  if (pathname === '/api/vitals') {
+    if (req.method === 'GET')  return apiVitals(req, res);
+    if (req.method === 'POST') return apiVitalPost(req, res); // M3: 간호사 바이탈 입력
+    return sendJson(res, 405, { error: 'Method Not Allowed' });
+  }
   if (pathname === '/api/bills'         && req.method === 'GET') return apiBillsGet(req, res);
   if (pathname === '/api/documents'     && req.method === 'GET') return apiDocumentsGet(req, res);
   if (pathname === '/api/admissions') {

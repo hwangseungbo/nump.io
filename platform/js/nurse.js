@@ -150,6 +150,15 @@
     defs.forEach(function (d) {
       if (alerts[d[0]] > 0) bellItems.push({ t: d[1] + ' ' + alerts[d[0]] + '건', h: d[2] });
     });
+    // M3: '주요 알림' 행 클릭 → defs 목적지로 (lab도 벨과 동일하게 #view-tests로 통일)
+    var rowEls = $all('.al-row', card);
+    defs.forEach(function (d, i) {
+      var rowEl = rowEls[i];
+      if (!rowEl || rowEl.getAttribute('data-bn-wired')) return;
+      rowEl.setAttribute('data-bn-wired', '1');
+      rowEl.style.cursor = 'pointer';
+      rowEl.addEventListener('click', function () { gotoView(d[2]); });
+    });
   }
 
   /* ---------- 메모 / 전달 사항 ---------- */
@@ -722,6 +731,71 @@
     load();
   }
 
+  /* ---------- M3: 해시 이동 (같은 해시면 강제 재렌더 — 의사 딥링크와 동일 패턴) ---------- */
+  function gotoView(hash) {
+    if (location.hash === hash) window.dispatchEvent(new Event('hashchange'));
+    else location.hash = hash;
+  }
+
+  /* ---------- M3: 바이탈 입력 모달 (인계 보드) ---------- */
+  function openVitalModal(p, onSaved) {
+    var ov = el('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,20,40,.45);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    var card = el('div');
+    card.style.cssText = 'background:var(--card,#fff);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.25);padding:22px;width:100%;max-width:320px;';
+    var title = el('div', null, (p.name || '') + ' — 바이탈 입력');
+    title.style.cssText = 'font-size:15px;font-weight:800;margin-bottom:12px;';
+    card.appendChild(title);
+    function numInput(ph) {
+      var i = document.createElement('input');
+      i.type = 'number';
+      i.placeholder = ph;
+      i.style.cssText = 'width:100%;font:inherit;font-size:13px;border:1px solid var(--line,#e5e5ee);border-radius:9px;padding:9px 10px;margin-bottom:8px;';
+      return i;
+    }
+    var iSys = numInput('수축기 혈압 (60~260)');
+    var iDia = numInput('이완기 혈압 (30~160)');
+    var iGlu = numInput('혈당 (선택, 30~600)');
+    card.appendChild(iSys); card.appendChild(iDia); card.appendChild(iGlu);
+    var err = el('div');
+    err.style.cssText = 'display:none;font-size:12px;color:#c0392b;margin-bottom:8px;';
+    card.appendChild(err);
+    var btns = el('div');
+    btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:6px;';
+    var cancel = vbtn('취소', 'ghost sm');
+    var save = vbtn('저장', 'sm');
+    btns.appendChild(cancel); btns.appendChild(save);
+    card.appendChild(btns);
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+    function close() { ov.remove(); }
+    function showErr(msg) { err.textContent = msg; err.style.display = 'block'; }
+    cancel.addEventListener('click', close);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    save.addEventListener('click', function () {
+      err.style.display = 'none';
+      var sys = parseInt(iSys.value, 10), dia = parseInt(iDia.value, 10);
+      if (!(sys >= 60 && sys <= 260)) { showErr('수축기 혈압은 60~260 사이 정수로 입력하세요.'); return; }
+      if (!(dia >= 30 && dia <= 160)) { showErr('이완기 혈압은 30~160 사이 정수로 입력하세요.'); return; }
+      var body = { patient_id: p.patientId, systolic: sys, diastolic: dia };
+      if (iGlu.value.trim() !== '') {
+        var glu = parseInt(iGlu.value, 10);
+        if (!(glu >= 30 && glu <= 600)) { showErr('혈당은 30~600 사이 정수로 입력하세요.'); return; }
+        body.glucose = glu;
+      }
+      save.disabled = true;
+      fetchJson('/api/vitals', jsonOpts('POST', body)).then(function () {
+        close();
+        toast('바이탈이 저장되었습니다 — 간호 기록에 자동 등록되었습니다');
+        if (onSaved) onSaved(); // 보드 재조회 → '최근 바이탈'에 즉시 반영
+      }).catch(function (e2) {
+        save.disabled = false;
+        showErr(e2.message || '저장에 실패했습니다');
+      });
+    });
+    iSys.focus();
+  }
+
   /* ---------- P3b 뷰: 인계(핸드오버) 보드 ---------- */
   function renderHandoverView(host) {
     var head = viewHead('인계 보드', '근무조 기준 병동 환자 현황 — 바이탈·간호기록·남은 일정');
@@ -779,7 +853,7 @@
         });
         if (!pats.length) { box.appendChild(el('div', 'empty', '이번 근무조 기록이 없습니다')); }
         else {
-          var t = makeTable(['병실', '환자', '진단', '최근 바이탈', '근무조 간호기록', '남은 일정']);
+          var t = makeTable(['병실', '환자', '진단', '최근 바이탈', '근무조 간호기록', '남은 일정', '']);
           pats.forEach(function (p) {
             var tr = document.createElement('tr');
             tr.appendChild(td(p.room || '-'));
@@ -792,6 +866,15 @@
             tr.appendChild(td(listCell(p.pendingToday, function (a) {
               return a.time + ' ' + a.kind;
             }, '-')));
+            // M3: 바이탈 입력 — 저장 성공 시 보드 재조회 (patientId 부재(구서버) 시 버튼 생략)
+            var act = document.createElement('td');
+            act.className = 'cell-act';
+            if (p.patientId != null) {
+              var vb = vbtn('바이탈 입력', 'ghost sm');
+              vb.addEventListener('click', function () { openVitalModal(p, load); });
+              act.appendChild(vb);
+            }
+            tr.appendChild(act);
             t.tbody.appendChild(tr);
           });
           box.appendChild(t.wrap);
@@ -1302,8 +1385,24 @@
   }
 
   /* ---------- 초기화 ---------- */
+  /* ---------- M3: rail 검색창 배선 — bn.searchQ 저장 후 환자 검색 뷰로 ---------- */
+  function initRailSearch() {
+    var inp = document.querySelector('.rail-search input');
+    if (!inp) return;
+    inp.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var q = inp.value.trim();
+      if (!q) return;
+      try { sessionStorage.setItem('bn.searchQ', q); } catch (e2) {}
+      inp.value = '';
+      gotoView('#view-search'); // renderSearchView가 bn.searchQ를 소비해 즉시 검색
+    });
+  }
+
   function init() {
     loadDashboard();
+    initRailSearch(); // M3
 
     fetch('/api/health').then(function (r) {
       if (!r.ok) throw new Error('GET /api/health ' + r.status);
