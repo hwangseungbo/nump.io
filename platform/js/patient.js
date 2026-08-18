@@ -686,6 +686,21 @@
   }
 
   /* ---------- 뷰: 검사 결과 (labs) ---------- */
+  // P3a: 검사 항목 쉬운 이름 병기 사전 — 미등재 항목은 원명 그대로
+  var LAB_EASY = {
+    'LDL-C': 'LDL (나쁜 콜레스테롤)', 'HbA1c': '당화혈색소 (3개월 평균 혈당)',
+    'TSH': '갑상선 자극 호르몬', 'CRP': '염증 수치', 'DEXA T-score': '골밀도 점수',
+    '크레아티닌': '신장 기능', 'AST': '간 기능', 'ALT': '간 기능'
+  };
+  // P3a: flag×추세 조합의 안심형 한 줄 해석 (공포 조장·진단 표현 금지, 행동 권유형)
+  function labAdvice(flag, dir) { // dir: 'better' | 'worse' | null
+    if (flag !== 'H' && flag !== 'L') return '정상 범위예요.';
+    if (dir === 'better')
+      return (flag === 'H' ? '목표보다 조금 높지만' : '목표보다 조금 낮지만') + ' 지난번보다 좋아지고 있어요. 처방을 꾸준히 지켜주세요.';
+    if (dir === 'worse')
+      return (flag === 'H' ? '지난번보다 조금 올랐어요.' : '지난번보다 조금 내려갔어요.') + ' 다음 진료 때 선생님과 상의해 보세요.';
+    return (flag === 'H' ? '목표보다 조금 높아요.' : '목표보다 조금 낮아요.') + ' 다음 진료 때 선생님과 함께 확인해 보세요.';
+  }
   function renderLabsView(host) {
     host.textContent = '';
     host.appendChild(viewHead('검사 결과', '최근 검사 결과를 확인할 수 있습니다. L(낮음)·H(높음) 항목은 강조 표시됩니다.'));
@@ -698,10 +713,18 @@
         return;
       }
       var t = makeTable(['날짜', '검사 항목', '결과', '참고치', '판정']);
-      rows.forEach(function (r) {
+      rows.forEach(function (r, i) {
         var tr = document.createElement('tr');
         tr.appendChild(td(r.date));
-        tr.appendChild(td(r.test));
+        // 검사 항목 — 쉬운 이름을 아래 줄에 병기 (전부 textContent)
+        var tCell = td(r.test);
+        var easy = LAB_EASY[r.test];
+        if (easy) {
+          var e = el('div', 'muted', easy);
+          e.style.cssText = 'font-size:11px;font-weight:400;';
+          tCell.appendChild(e);
+        }
+        tr.appendChild(tCell);
         var vCell = td(r.value);
         if (r.flag === 'L') vCell.className = 'fl-l';
         else if (r.flag === 'H') vCell.className = 'fl-h';
@@ -713,6 +736,34 @@
         else fCell.appendChild(badge('g', '정상'));
         tr.appendChild(fCell);
         t.tbody.appendChild(tr);
+
+        // P3a: 전회 대비 + 안심형 한 줄 해석 (행 아래 보조 텍스트, colspan 행)
+        var prev = null; // 응답은 최신순 — 뒤쪽에서 같은 항목의 직전(더 오래된) 결과를 찾는다
+        for (var j = i + 1; j < rows.length; j++) {
+          if (rows[j].test === r.test) { prev = rows[j]; break; }
+        }
+        var cur = parseFloat(r.value);
+        var dir = null, cmpText = '';
+        if (prev) {
+          var pv = parseFloat(prev.value);
+          if (isFinite(cur) && isFinite(pv) && cur !== pv) {
+            var arrow = cur > pv ? '▲' : '▼';
+            cmpText = '지난번 ' + prev.value + ' → 이번 ' + r.value + ' ' + arrow;
+            // 개선 판정: H는 내려가면, L은 올라가면 개선
+            if (r.flag === 'H') dir = cur < pv ? 'better' : 'worse';
+            else if (r.flag === 'L') dir = cur > pv ? 'better' : 'worse';
+          } else if (isFinite(cur) && isFinite(pv)) {
+            cmpText = '지난번 ' + prev.value + ' → 이번 ' + r.value + ' →';
+          }
+        }
+        var subTr = document.createElement('tr');
+        var subTd = document.createElement('td');
+        subTd.colSpan = 5;
+        subTd.className = 'muted';
+        subTd.style.cssText = 'font-size:11.5px;padding-top:0;';
+        subTd.textContent = (cmpText ? cmpText + ' · ' : '') + labAdvice(r.flag, dir);
+        subTr.appendChild(subTd);
+        t.tbody.appendChild(subTr);
       });
       card.appendChild(t.wrap);
     }).catch(function (err) {

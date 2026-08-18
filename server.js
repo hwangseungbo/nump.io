@@ -336,7 +336,7 @@ async function patientDetail(db, patientId) {
   const pr = await db.query(`SELECT id, name, sex, birth_date, created_at FROM patients WHERE id=$1`, [patientId]);
   if (!pr.rows.length) return null;
   const p = pr.rows[0];
-  const [dxr, rxr, vr, lr, er] = await Promise.all([
+  const [dxr, rxr, vr, lr, er, lsR, vsR] = await Promise.all([
     db.query(`SELECT name, code, diagnosed_at FROM diagnoses WHERE patient_id=$1
               ORDER BY diagnosed_at ASC NULLS LAST, id`, [patientId]),
     db.query(`SELECT drug_name, dosage, active FROM prescriptions WHERE patient_id=$1
@@ -346,8 +346,23 @@ async function patientDetail(db, patientId) {
     db.query(`SELECT tested_at, test_name, value, ref_range, flag FROM lab_results
               WHERE patient_id=$1 ORDER BY tested_at DESC, id LIMIT 5`, [patientId]),
     db.query(`SELECT visited_at, note FROM encounters
-              WHERE patient_id=$1 AND visited_at <= now() ORDER BY visited_at DESC LIMIT 1`, [patientId])
+              WHERE patient_id=$1 AND visited_at <= now() ORDER BY visited_at DESC LIMIT 1`, [patientId]),
+    // P3a: 추이 그래프용 시계열 — 검사는 항목별 최근 8건, 바이탈은 최근 10건 (오름차순)
+    db.query(`SELECT tested_at, test_name, value, flag FROM (
+                SELECT tested_at, test_name, value, flag, id,
+                       row_number() OVER (PARTITION BY test_name ORDER BY tested_at DESC, id DESC) AS rn
+                  FROM lab_results WHERE patient_id=$1) t
+               WHERE rn <= 8 ORDER BY test_name, tested_at, id`, [patientId]),
+    db.query(`SELECT measured_at, systolic, diastolic, glucose FROM (
+                SELECT measured_at, systolic, diastolic, glucose, id,
+                       row_number() OVER (ORDER BY measured_at DESC, id DESC) AS rn
+                  FROM vitals WHERE patient_id=$1) t
+               WHERE rn <= 10 ORDER BY measured_at, id`, [patientId])
   ]);
+  const labSeries = {};   // P3a: test_name별 오름차순 [{date,value,flag}]
+  lsR.rows.forEach((r) => {
+    (labSeries[r.test_name] ||= []).push({ date: fmtDate(r.tested_at), value: r.value, flag: r.flag });
+  });
   const active = rxr.rows.filter((r) => r.active);
   const enc = er.rows[0];
   return {
@@ -361,7 +376,10 @@ async function patientDetail(db, patientId) {
       prescriptions: rxr.rows.map((r) => ({ drug: r.drug_name, dosage: r.dosage, active: r.active })),
       vitals: vr.rows.map((r) => ({ date: fmtDate(r.measured_at), systolic: r.systolic, diastolic: r.diastolic,
                                     glucose: r.glucose, weight: toNum(r.weight_kg), bmi: toNum(r.bmi) })),
-      labs: lr.rows.map((r) => ({ date: fmtDate(r.tested_at), test: r.test_name, value: r.value, ref: r.ref_range, flag: r.flag }))
+      labs: lr.rows.map((r) => ({ date: fmtDate(r.tested_at), test: r.test_name, value: r.value, ref: r.ref_range, flag: r.flag })),
+      // P3a: 추이용 시계열 (기존 vitals/labs 필드는 그대로 — 하위호환)
+      labSeries,
+      vitalSeries: vsR.rows.map((r) => ({ date: fmtDate(r.measured_at), systolic: r.systolic, diastolic: r.diastolic, glucose: r.glucose }))
     }
   };
 }

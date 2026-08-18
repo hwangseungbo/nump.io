@@ -514,6 +514,67 @@
   }
 
   // EMR 상세 카드(진단·처방·바이탈·검사 + AI 요약) — search 뷰
+  /* ---------- P3a: 인라인 SVG 스파크라인 (외부 라이브러리 금지) ----------
+     축·격자·라벨 없이 muted 단색(currentColor) 선 + 마지막 점 강조.
+     값이 숫자가 아니거나 2건 미만이면 null 반환(호출부에서 생략). */
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function sparkline(series) {
+    if (!series || series.length < 2) return null;
+    var vals = [];
+    for (var i = 0; i < series.length; i++) {
+      var v = parseFloat(series[i].value);
+      if (!isFinite(v)) return null;
+      vals.push(v);
+    }
+    var W = 68, H = 18, PAD = 2;
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var span = (max - min) || 1;
+    var pts = vals.map(function (v, i) {
+      var x = PAD + (W - 2 * PAD) * (i / (vals.length - 1));
+      var y = H - PAD - (H - 2 * PAD) * ((v - min) / span);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    });
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.style.cssText = 'vertical-align:middle;color:var(--muted);overflow:visible;';
+    var pl = document.createElementNS(SVG_NS, 'polyline');
+    pl.setAttribute('points', pts.join(' '));
+    pl.setAttribute('fill', 'none');
+    pl.setAttribute('stroke', 'currentColor');
+    pl.setAttribute('stroke-width', '1.5');
+    pl.setAttribute('stroke-linejoin', 'round');
+    pl.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(pl);
+    var lastXY = pts[pts.length - 1].split(',');
+    var dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('cx', lastXY[0]); dot.setAttribute('cy', lastXY[1]);
+    dot.setAttribute('r', '2'); dot.setAttribute('fill', 'currentColor');
+    svg.appendChild(dot);
+    var title = document.createElementNS(SVG_NS, 'title'); // 날짜·값 나열 (textContent — DB 유래 안전)
+    title.textContent = series.map(function (s) { return s.date + ' ' + s.value; }).join(', ');
+    svg.appendChild(title);
+    return svg;
+  }
+  function trendArrow(series) { // 직전 대비 방향 ▲▼→ (숫자 아닐 때 null)
+    if (!series || series.length < 2) return null;
+    var a = parseFloat(series[series.length - 2].value), b = parseFloat(series[series.length - 1].value);
+    if (!isFinite(a) || !isFinite(b)) return null;
+    var s = h('span', 'muted', b > a ? '▲' : b < a ? '▼' : '→');
+    s.style.cssText = 'font-size:10px;margin-left:4px;';
+    return s;
+  }
+  function sparkCell(series) { // 스파크라인+화살표 묶음 셀 (생성 불가 시 null)
+    var svg = sparkline(series);
+    if (!svg) return null;
+    var wrap = h('span', null);
+    wrap.style.whiteSpace = 'nowrap';
+    wrap.appendChild(svg);
+    var ar = trendArrow(series);
+    if (ar) wrap.appendChild(ar);
+    return wrap;
+  }
+
   function renderEmrDetail(hostEl, p) {
     hostEl.innerHTML = '';
     var card = h('div', 'card');
@@ -558,14 +619,33 @@
           x.weight != null ? x.weight + ' kg' : '-', x.bmi]));
       });
       card.appendChild(tv.wrap);
+      // P3a: 수축기/이완기 미니 추이 (vitalSeries 부재(구서버) 시 표만 유지)
+      var vs = emr.vitalSeries || [];
+      var spS = sparkCell(vs.filter(function (v) { return v.systolic != null; })
+        .map(function (v) { return { date: v.date, value: v.systolic }; }));
+      var spD = sparkCell(vs.filter(function (v) { return v.diastolic != null; })
+        .map(function (v) { return { date: v.date, value: v.diastolic }; }));
+      if (spS || spD) {
+        var vrow = h('div', 'muted');
+        vrow.style.cssText = 'font-size:11.5px;display:flex;gap:16px;align-items:center;margin-top:6px;';
+        if (spS) { var w1 = h('span', null); w1.appendChild(spS); w1.appendChild(document.createTextNode(' 수축기')); vrow.appendChild(w1); }
+        if (spD) { var w2 = h('span', null); w2.appendChild(spD); w2.appendChild(document.createTextNode(' 이완기')); vrow.appendChild(w2); }
+        card.appendChild(vrow);
+      }
     } else card.appendChild(emptyBox('바이탈 기록이 없습니다'));
 
     card.appendChild(h('div', 'sub-t', '검사'));
     if (emr.labs && emr.labs.length) {
-      var tl = makeTable(['검사일', '항목', '결과', '참고치', '판정']);
+      // P3a: labSeries가 오면 '추이' 컬럼 추가 — 부재(구서버) 시 기존 표 그대로 (폴백)
+      var hasSeries = !!emr.labSeries;
+      var cols = ['검사일', '항목', '결과', '참고치', '판정'];
+      if (hasSeries) cols.push('추이');
+      var tl = makeTable(cols);
       emr.labs.forEach(function (x) {
         var flag = x.flag === 'L' ? h('span', 'flg-l', 'L') : (x.flag === 'H' ? h('span', 'flg-h', 'H') : '정상');
-        tl.tbody.appendChild(trow([x.date, x.test, bcell(x.value), x.ref, flag]));
+        var cells = [x.date, x.test, bcell(x.value), x.ref, flag];
+        if (hasSeries) cells.push(sparkCell(emr.labSeries[x.test]) || '—');
+        tl.tbody.appendChild(trow(cells));
       });
       card.appendChild(tl.wrap);
     } else card.appendChild(emptyBox('검사 결과가 없습니다'));
