@@ -245,6 +245,82 @@
     }
   }
 
+  /* ---------- M1: 이상 검사치 카드 (최근 7일 H/L — 통계 카드 위) ---------- */
+  function renderAbnormalLabs(list) {
+    if (!Array.isArray(list)) return; // 구서버(필드 부재) — 카드 자체를 렌더하지 않음
+    var card = document.getElementById('abnormalCard');
+    if (!card) {
+      var stats = document.getElementById('statsCard');
+      if (!stats || !stats.parentNode) return;
+      card = h('div', 'block card');
+      card.id = 'abnormalCard';
+      stats.parentNode.insertBefore(card, stats);
+    }
+    card.innerHTML = '';
+    var head = h('div', 'sec-t');
+    var t = h('h2', null, '이상 검사치 ');
+    var mspan = h('span', 'muted', '(최근 7일)');
+    mspan.style.cssText = 'font-weight:600;font-size:13px;';
+    t.appendChild(mspan);
+    head.appendChild(t);
+    card.appendChild(head);
+    if (!list.length) { card.appendChild(h('div', 'empty', '최근 7일 이상 수치가 없습니다')); return; }
+    list.forEach(function (r) {
+      var row = h('div', 'sch-row click');
+      row.appendChild(h('span', 'h', (r.date || '').slice(5)));       // 'MM.DD'
+      row.appendChild(h('span', 'nm', r.patient || ''));
+      row.appendChild(h('span', 'dx', r.test || ''));
+      var v = h('span', r.flag === 'L' ? 'flg-l' : 'flg-h', (r.value || '') + ' ' + (r.flag || ''));
+      v.style.cssText = 'font-size:12.5px;flex:none;';
+      row.appendChild(v);
+      var ref = h('span', 'muted', r.ref || '');
+      ref.style.cssText = 'font-size:11.5px;flex:none;min-width:70px;text-align:right;';
+      row.appendChild(ref);
+      row.title = '클릭하면 환자 EMR 상세로 이동합니다';
+      row.addEventListener('click', function () { gotoEmr(r.patientId); });
+      card.appendChild(row);
+    });
+  }
+
+  /* ---------- M1: 간호 메모 / 전달 카드 (우측 레일) ---------- */
+  function loadNurseMemos() {
+    fetch('/api/memos?limit=5').then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status); // 구서버 403 등 — 카드 미표시
+      return r.json();
+    }).then(function (d) {
+      var rows = (d && d.rows) || [];
+      var rail = document.querySelector('.rail');
+      if (!rail) return;
+      var card = h('div', 'card');
+      card.id = 'nurseMemoCard';
+      var head = h('div', 'sec-t');
+      head.appendChild(h('h2', null, '간호 메모 / 전달'));
+      card.appendChild(head);
+      if (!rows.length) card.appendChild(h('div', 'empty', '메모가 없습니다'));
+      var today = ymd(new Date()).replace(/-/g, '.'); // 'YYYY.MM.DD'
+      rows.forEach(function (m) {
+        var row = h('div', null);
+        row.style.cssText = 'font-size:12px;padding:7px 0;border-bottom:1px solid var(--line-2);';
+        var when = m.time || '';
+        if (m.date && m.date !== today) { // 오늘이 아니면 M/D 표기 (P3b 간호사 패턴)
+          var p = String(m.date).split('.');
+          if (p.length === 3) when = Number(p[1]) + '/' + Number(p[2]) + ' ' + when;
+        }
+        var ts = h('span', 'muted', when + ' ');
+        ts.style.fontWeight = '600';
+        row.appendChild(ts);
+        row.appendChild(document.createTextNode(m.text || ''));
+        row.appendChild(h('span', 'muted', ' — ' + (m.author || '')));
+        card.appendChild(row);
+      });
+      var last = card.lastChild;
+      if (last && last.style) last.style.borderBottom = 'none';
+      rail.appendChild(card);
+    }).catch(function (e) {
+      console.warn('간호 메모 조회 실패 — 카드 미표시:', e.message);
+    });
+  }
+
   /* ---------- 초기화 ---------- */
   function init() {
     // 대시보드 데이터 1회 수신 (실패 시 정적 목업 유지)
@@ -258,6 +334,7 @@
       renderDocRequests(data.docRequests);
       renderMonthStats(data.monthStats);
       if (data.recentPatient) renderRecentPatient(data.recentPatient);
+      renderAbnormalLabs(data.abnormalLabs); // M1: 이상 검사치 카드
       var badge = document.getElementById('alertBadge');
       if (badge && data.alertCount != null) badge.textContent = data.alertCount;
       updateBellItems(data);
@@ -265,6 +342,8 @@
     }).catch(function (e) {
       console.warn('의사 대시보드 데이터 수신 실패 — 정적 목업 유지:', e);
     });
+
+    loadNurseMemos(); // M1: 간호 메모 카드 (실패 시 미표시)
 
     // 시스템 상태 (별도 호출, 실패 시 정적 유지)
     fetch('/api/health').then(function (r) {
@@ -624,9 +703,14 @@
 
     card.appendChild(h('div', 'sub-t', '처방'));
     if (emr.prescriptions && emr.prescriptions.length) {
-      var tp = makeTable(['약물', '용법', '상태']);
+      // M1: 기간 컬럼 — start/end 필드가 있을 때만 (구서버 폴백: 기존 3컬럼)
+      var hasPeriod = emr.prescriptions[0].start !== undefined;
+      var tp = makeTable(hasPeriod ? ['약물', '용법', '기간', '상태'] : ['약물', '용법', '상태']);
       emr.prescriptions.forEach(function (x) {
-        tp.tbody.appendChild(trow([bcell(x.drug), x.dosage, x.active ? stBadge('ok', '복용 중') : stBadge('done', '종료')]));
+        var cells = [bcell(x.drug), x.dosage];
+        if (hasPeriod) cells.push((x.start || x.end) ? (x.start || '') + ' ~' + (x.end ? ' ' + x.end : '') : '-');
+        cells.push(x.active ? stBadge('ok', '복용 중') : stBadge('done', '종료'));
+        tp.tbody.appendChild(trow(cells));
       });
       card.appendChild(tp.wrap);
     } else card.appendChild(emptyBox('처방 이력이 없습니다'));
@@ -766,20 +850,58 @@
     viewHost.appendChild(head);
     var sub = head.querySelector('.vh-sub');
     var scopeAll = false; // P2: 기본은 내 진료만
+    var pidFilter = null; // M1: 환자 필터 { id, name }
     var card = h('div', 'card');
     viewHost.appendChild(card);
-    card.appendChild(scopeTabs(function (isAll) {
+    function updateSub() {
+      if (!sub) return;
+      sub.textContent = (scopeAll ? '병원 전체' : '내') + ' 진료 기록 (최신순, 20건씩)'
+        + (pidFilter ? ' — ' + pidFilter.name + ' 환자' : '');
+    }
+    var tabs = scopeTabs(function (isAll) {
       scopeAll = isAll;
-      if (sub) sub.textContent = (isAll ? '병원 전체' : '내') + ' 진료 기록 (최신순, 20건씩)';
+      updateSub();
       load(1);
-    }));
+    });
+    // M1: 환자 필터 — 이름/ID 검색 첫 매칭 환자의 기록만 (API가 이미 patient_id 지원)
+    var fInp = document.createElement('input');
+    fInp.type = 'text';
+    fInp.placeholder = '환자 이름 또는 ID';
+    fInp.style.cssText = 'margin-left:auto;font:inherit;font-size:12.5px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 10px;width:150px;';
+    var fBtn = h('button', 'vtab', '필터 적용'); fBtn.type = 'button';
+    var cBtn = h('button', 'vtab', '해제'); cBtn.type = 'button';
+    cBtn.style.display = 'none';
+    function applyFilter() {
+      var q = fInp.value.trim();
+      if (!q) return;
+      getJson('/api/patients?q=' + encodeURIComponent(q)).then(function (d) {
+        var results = (d && d.results) || [];
+        if (!results.length) { toast('해당 환자를 찾을 수 없습니다'); return; }
+        pidFilter = { id: results[0].id, name: results[0].name };
+        cBtn.style.display = '';
+        updateSub();
+        load(1);
+      }).catch(function () { toast('해당 환자를 찾을 수 없습니다'); });
+    }
+    fBtn.addEventListener('click', applyFilter);
+    fInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyFilter(); } });
+    cBtn.addEventListener('click', function () {
+      pidFilter = null;
+      fInp.value = '';
+      cBtn.style.display = 'none';
+      updateSub();
+      load(1);
+    });
+    tabs.appendChild(fInp); tabs.appendChild(fBtn); tabs.appendChild(cBtn);
+    card.appendChild(tabs);
     var listWrap = h('div', null);
     listWrap.style.marginTop = '12px';
     card.appendChild(listWrap);
     function load(page) {
       listWrap.innerHTML = '';
       listWrap.appendChild(loadingBox());
-      getJson('/api/encounters?page=' + page + (scopeAll ? '&scope=all' : '')).then(function (d) {
+      getJson('/api/encounters?page=' + page + (scopeAll ? '&scope=all' : '')
+        + (pidFilter ? '&patient_id=' + pidFilter.id : '')).then(function (d) {
         listWrap.innerHTML = '';
         var rows = (d && d.rows) || [];
         if (!rows.length) { listWrap.appendChild(h('div', 'empty', '진료 기록이 없습니다')); return; }
@@ -1283,8 +1405,7 @@
 
   function initRailButtons() {
     initBell();
-    var newBtn = document.querySelector('.rail-top .btn-cta');
-    if (newBtn) newBtn.addEventListener('click', function () { toast('환자 등록은 관리자 계정에서 할 수 있습니다'); });
+    // M1: '새 환자 등록' CTA 제거됨 — 관련 토스트 핸들러도 정리
     var detailBtn = document.querySelector('#recentCard .pt-head .btn-ghost');
     if (detailBtn) detailBtn.addEventListener('click', function () { location.hash = '#view-search'; });
   }

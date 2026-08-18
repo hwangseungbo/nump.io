@@ -92,7 +92,9 @@
     b.className = 'icon-btn';
     b.title = '로그아웃';
     b.setAttribute('aria-label', '로그아웃');
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>';
+    // M1: 아이콘만으로는 발견성이 낮아 텍스트 라벨 병기 (icon-btn 고정폭을 인라인으로 해제)
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span>로그아웃</span>';
+    b.style.cssText = 'width:auto;padding:0 12px;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:11.5px;font-weight:600;color:var(--ink-2,#444);';
     b.addEventListener('click', function () {
       confirmLogout(function () {
         fetch('/api/logout', { method: 'POST' }).then(function () { location.href = '../../index.html'; });

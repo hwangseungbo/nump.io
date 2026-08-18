@@ -1362,8 +1362,7 @@
 
   function initRailButtons() {
     initBell();
-    var newBtn = document.querySelector('.rail-top .btn-cta');
-    if (newBtn) newBtn.addEventListener('click', function () { toast('환자 등록은 관리자 계정에서 할 수 있습니다'); });
+    // M1: '새 환자 등록' CTA 제거됨 — 관련 토스트 핸들러도 정리
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { init(); initRailButtons(); });

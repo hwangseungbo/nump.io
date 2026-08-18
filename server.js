@@ -339,7 +339,7 @@ async function patientDetail(db, patientId) {
   const [dxr, rxr, vr, lr, er, lsR, vsR] = await Promise.all([
     db.query(`SELECT name, code, diagnosed_at FROM diagnoses WHERE patient_id=$1
               ORDER BY diagnosed_at ASC NULLS LAST, id`, [patientId]),
-    db.query(`SELECT drug_name, dosage, active FROM prescriptions WHERE patient_id=$1
+    db.query(`SELECT drug_name, dosage, active, start_date, end_date FROM prescriptions WHERE patient_id=$1
               ORDER BY start_date ASC NULLS LAST, id`, [patientId]),
     db.query(`SELECT measured_at, systolic, diastolic, glucose, weight_kg, bmi FROM vitals
               WHERE patient_id=$1 ORDER BY measured_at DESC LIMIT 3`, [patientId]),
@@ -373,7 +373,9 @@ async function patientDetail(db, patientId) {
     memo: (enc && enc.note) || '',
     emr: {
       diagnoses: dxr.rows.map((r) => ({ name: r.name, code: r.code, date: r.diagnosed_at ? fmtDate(r.diagnosed_at) : null })),
-      prescriptions: rxr.rows.map((r) => ({ drug: r.drug_name, dosage: r.dosage, active: r.active })),
+      // M1: 처방 기간(start·end) 추가 — null이면 ''
+      prescriptions: rxr.rows.map((r) => ({ drug: r.drug_name, dosage: r.dosage, active: r.active,
+        start: r.start_date ? fmtDate(r.start_date) : '', end: r.end_date ? fmtDate(r.end_date) : '' })),
       vitals: vr.rows.map((r) => ({ date: fmtDate(r.measured_at), systolic: r.systolic, diastolic: r.diastolic,
                                     glucose: r.glucose, weight: toNum(r.weight_kg), bmi: toNum(r.bmi) })),
       labs: lr.rows.map((r) => ({ date: fmtDate(r.tested_at), test: r.test_name, value: r.value, ref: r.ref_range, flag: r.flag })),
@@ -394,7 +396,7 @@ async function apiDashboardDoctor(req, res) {
     const d = await db.query(`SELECT id FROM users WHERE role='doctor' AND active ORDER BY id LIMIT 1`);
     if (d.rows.length) doctorId = d.rows[0].id;
   }
-  const [schedR, noShowR, encR, recentR, alertR, docRequests] = await Promise.all([
+  const [schedR, noShowR, encR, recentR, alertR, abnR, docRequests] = await Promise.all([
     db.query(`SELECT a.scheduled_at, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date,
                      COALESCE((SELECT string_agg(d.name, '·' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
                                  FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
@@ -410,6 +412,14 @@ async function apiDashboardDoctor(req, res) {
     // 최근 encounter의 환자 — 통계 시드가 미래 시각 포함이므로 now() 필터 없이 조회 (DB 시드 규약)
     db.query(`SELECT patient_id FROM encounters ORDER BY visited_at DESC LIMIT 1`),
     db.query(`SELECT count(*)::int AS c FROM documents WHERE status='requested'`),
+    // M1: 최근 7일 이상(H/L) 검사치 — 환자·항목별 최신 1건만, 최신순 6건
+    db.query(`SELECT patient_id, name, tested_at, test_name, value, ref_range, flag FROM (
+                SELECT l.patient_id, p.name, l.tested_at, l.test_name, l.value, l.ref_range, l.flag,
+                       row_number() OVER (PARTITION BY l.patient_id, l.test_name
+                                          ORDER BY l.tested_at DESC, l.id DESC) AS rn
+                  FROM lab_results l JOIN patients p ON p.id=l.patient_id
+                 WHERE l.tested_at >= CURRENT_DATE - 7 AND l.flag IN ('H','L')) t
+               WHERE rn = 1 ORDER BY tested_at DESC LIMIT 6`),
     getDocRequests(db)
   ]);
   // P2: '진료 중'은 시간 기반 — scheduled이면서 예약 시각 <= 지금 < 예약 시각+30분인 첫 건만.
@@ -436,6 +446,11 @@ async function apiDashboardDoctor(req, res) {
     docRequests,
     monthStats: { waiting, noShow: noShowR.rows[0].c, encounters: encR.rows[0].c },
     recentPatient,
+    // M1: 이상 검사치 카드용
+    abnormalLabs: abnR.rows.map((r) => ({
+      patientId: r.patient_id, patient: r.name, test: r.test_name,
+      value: r.value, ref: r.ref_range, flag: r.flag, date: fmtDate(r.tested_at)
+    })),
     alertCount: alertR.rows[0].c
   });
 }
@@ -1298,7 +1313,8 @@ async function apiNursingNotePost(req, res) {
 
 // §1-9 GET /api/memos?limit=50
 async function apiMemosGet(req, res) {
-  const me = await requireRole(req, res, ['nurse']);
+  const me = await requireRole(req, res, ['nurse', 'doctor']); // M1: 의사 화면 간호 메모 카드
+
   if (!me) return;
   const db = getPool();
   let limit = parseInt(url.parse(req.url, true).query.limit, 10);
