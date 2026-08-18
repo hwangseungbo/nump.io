@@ -114,6 +114,33 @@
   display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .ntc-date{ font-size:11.5px; font-weight:600; color:var(--muted,#7f8e85); }
 .ntc-row p{ font-size:13px; color:var(--ink-2,#364a3f); margin-top:6px; line-height:1.6; }
+/* ── M2: 글씨 크게 모드 (환자 화면 전용 — shell.css 무변경) ──
+   주요 읽기 텍스트를 15px 이상으로 상향. body.font-lg 토글 + localStorage 유지. */
+body.font-lg{ font-size:15px; }
+body.font-lg .hello-sub{ font-size:15.5px; }
+body.font-lg .appt-next .dt{ font-size:19px; }
+body.font-lg .appt-next .meta{ font-size:15px; }
+body.font-lg #bnPrepNote{ font-size:15px; }
+body.font-lg .tl-row .d, body.font-lg .tl-row .h, body.font-lg .tl-row .l{ font-size:15px; }
+body.font-lg .rec-b, body.font-lg .rec-b div{ font-size:15px; }
+body.font-lg .med-n{ font-size:16px; }
+body.font-lg .med-d{ font-size:15px; }
+body.font-lg .doc-c h4{ font-size:15px; }
+body.font-lg .doc-c p{ font-size:13px; }
+body.font-lg .bill-row{ font-size:15px; }
+body.font-lg .bill-big .n{ font-size:22px; }
+body.font-lg .health-row, body.font-lg .health-row .hv{ font-size:16px; }
+body.font-lg .kv .k, body.font-lg .kv .v{ font-size:15px; }
+body.font-lg .vt th, body.font-lg .vt td{ font-size:15px; }
+body.font-lg .empty{ font-size:15px; }
+body.font-lg .vbdg{ font-size:12.5px; }
+body.font-lg .vt-btn{ font-size:14px; }
+body.font-lg .ai-bubble{ font-size:15px; }
+body.font-lg .view-head .vh-sub{ font-size:15px; }
+body.font-lg .vs-t{ font-size:16px; }
+/* M2: 예약 취소 버튼 — 채움 빨강 → 테두리형으로 시각 무게 완화 */
+.vt-btn.warn-ghost{ background:transparent; color:#c0392b; border:1px solid #e8b8b8; }
+.vt-btn.warn-ghost:hover{ background:#fdf0f0; }
 </style>
 </head>
 <body data-role="patient">
@@ -165,7 +192,8 @@
 
   <!-- ════════ 메인 ════════ -->
   <main class="main">
-    <div class="hello"><em>홍길동님</em>, 오늘도 건강한 하루 되세요!</div>
+    <div class="hello" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><span><em>홍길동님</em>, 오늘도 건강한 하루 되세요!</span>
+      <button id="bnFontToggle" class="btn-ghost" type="button" style="margin-left:auto;flex:none;">가 크게 보기</button></div>
     <div class="hello-sub">필요한 정보를 쉽게 확인하고, 편리하게 이용하세요.</div>
 
     <!-- AI 입력 -->
@@ -342,6 +370,6 @@
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="../js/auth.js?v=4"></script>
 <script src="../js/ai.js?v=13"></script>
-<script src="../js/patient.js?v=7"></script>
+<script src="../js/patient.js?v=8"></script>
 </body>
 </html>

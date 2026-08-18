@@ -56,6 +56,24 @@
       if (dt && d.nextAppt.dateLabel != null) dt.textContent = d.nextAppt.dateLabel;
       if (meta && d.nextAppt.meta != null) meta.textContent = d.nextAppt.meta;
       if (dday && d.nextAppt.dday != null) dday.textContent = 'D-' + d.nextAppt.dday;
+      // M2: kind 기반 준비 안내 한 줄 (kind 부재(구서버) 시 생략, 단정 표현 금지)
+      if (d.nextAppt.kind !== undefined && next.parentNode) {
+        var PREP_MSG = {
+          '검사': '검사 전 금식이 필요할 수 있어요. 병원 안내 문자를 확인해 주세요.',
+          '검진': '검진 전 금식이 필요할 수 있어요. 병원 안내 문자를 확인해 주세요.',
+          '건강검진': '검진 전 금식이 필요할 수 있어요. 병원 안내 문자를 확인해 주세요.',
+          '수술': '보호자 동행과 동의서가 필요할 수 있어요.',
+          '물리치료': '움직이기 편한 복장으로 와 주세요.'
+        };
+        var note = $('#bnPrepNote');
+        if (!note) {
+          note = el('div', 'muted');
+          note.id = 'bnPrepNote';
+          note.style.cssText = 'font-size:12px;margin-top:8px;';
+          next.parentNode.insertBefore(note, next.nextSibling);
+        }
+        note.textContent = PREP_MSG[d.nextAppt.kind] || '복용 중인 약이 있다면 목록을 준비해 오시면 좋아요.';
+      }
     }
     var tl = $('#bnUpcoming');
     if (tl && Array.isArray(d.upcoming)) {
@@ -133,7 +151,15 @@
     var foot = $('.bill-foot', card);
     bills.rows.forEach(function (b) {
       var row = el('div', 'bill-row');
-      row.appendChild(el('span', 'bd', (b.date || '') + ' · ' + (b.item || '')));
+      var bd = el('span', 'bd', (b.date || '') + ' · ' + (b.item || ''));
+      // M2: 미납/완납 소형 배지 (paid 부재(구서버) 시 생략)
+      if (typeof b.paid === 'boolean') {
+        bd.appendChild(document.createTextNode(' '));
+        var bdg = badge(b.paid ? 'g' : 'r', b.paid ? '완납' : '미납');
+        bdg.style.cssText = 'font-size:10px;padding:1px 7px;vertical-align:1px;';
+        bd.appendChild(bdg);
+      }
+      row.appendChild(bd);
       row.appendChild(el('span', 'bn', (typeof b.amount === 'number' ? b.amount.toLocaleString() : '0') + '원'));
       if (foot) card.insertBefore(row, foot); else card.appendChild(row);
     });
@@ -590,16 +616,36 @@
         card1.appendChild(emptyBox('다가오는 예약이 없습니다'));
       } else {
         var t1 = makeTable(['날짜', '시간', '종류', '진료과', '담당의', '관리']);
-        up.forEach(function (a) {
+        var lastMonth = ''; // M2: 월별 구분 헤더
+        up.forEach(function (a, i) {
+          var mKey = String(a.date || '').slice(0, 7); // 'YYYY.MM'
+          if (mKey && mKey !== lastMonth) {
+            lastMonth = mKey;
+            var mh = document.createElement('tr');
+            var mhTd = document.createElement('td');
+            mhTd.colSpan = 6;
+            mhTd.className = 'muted';
+            mhTd.style.cssText = 'font-size:11.5px;font-weight:700;background:var(--page);padding:6px 10px;';
+            mhTd.textContent = Number(mKey.slice(0, 4)) + '년 ' + Number(mKey.slice(5, 7)) + '월';
+            mh.appendChild(mhTd);
+            t1.tbody.appendChild(mh);
+          }
           var tr = document.createElement('tr');
-          tr.appendChild(td(a.date));
+          var dCell = td(a.date);
+          if (i === 0) { // M2: 가장 가까운 예약 강조
+            tr.style.background = 'var(--accent-soft, #eef7f0)';
+            dCell.appendChild(document.createTextNode(' '));
+            dCell.appendChild(badge('g', '다음 예약'));
+          }
+          tr.appendChild(dCell);
           tr.appendChild(td(a.time));
           tr.appendChild(td(a.kind));
           tr.appendChild(td(a.department));
           tr.appendChild(td(a.doctor));
           var cell = document.createElement('td');
           if (a.cancellable) {
-            var b = el('button', 'vt-btn warn', '예약 취소');
+            // M2: 채움 빨강 → 테두리형(warn-ghost)으로 시각 무게 완화 (확인 모달 로직 유지)
+            var b = el('button', 'vt-btn warn-ghost', '예약 취소');
             b.type = 'button';
             b.addEventListener('click', function () { cancelAppt(a); });
             cell.appendChild(b);
@@ -866,7 +912,8 @@
   /* ---------- 뷰: 수납 / 결제 내역 (bills) ---------- */
   function payBill(b) {
     var label = (b.item || '') + ' ' + won(b.amount);
-    if (!window.confirm(label + '을(를) 수납 처리하시겠습니까? (데모)')) return;
+    // M2: 데모 고지는 확인창 안에서 — 버튼 라벨은 '수납하기'로 정리
+    if (!window.confirm(label + '을(를) 수납 처리하시겠습니까?\n시연 환경에서는 실제 결제가 진행되지 않습니다.')) return;
     patchJSON('/api/bills/' + b.id, { paid: true }).then(function (res) {
       if (!res.ok) {
         console.warn('[patient] PATCH /api/bills/' + b.id + ' ' + res.status);
@@ -913,7 +960,7 @@
           tr.appendChild(stCell);
           var cell = document.createElement('td');
           if (!b.paid) {
-            var btn = el('button', 'vt-btn', '수납하기(데모)');
+            var btn = el('button', 'vt-btn', '수납하기');
             btn.type = 'button';
             btn.addEventListener('click', function () { payBill(b); });
             cell.appendChild(btn);
@@ -1125,10 +1172,29 @@
   }
 
   /* ---------- 초기화 ---------- */
+  /* ---------- M2: 글씨 크게 모드 (body.font-lg + localStorage 유지) ---------- */
+  function setupFontToggle() {
+    var btn = $('#bnFontToggle');
+    if (!btn) return;
+    function apply(on) {
+      document.body.classList.toggle('font-lg', on);
+      btn.textContent = on ? '가 기본 크기' : '가 크게 보기';
+    }
+    var saved = false;
+    try { saved = localStorage.getItem('bn.fontLg') === '1'; } catch (e) {}
+    apply(saved);
+    btn.addEventListener('click', function () {
+      var on = !document.body.classList.contains('font-lg');
+      try { localStorage.setItem('bn.fontLg', on ? '1' : '0'); } catch (e) {}
+      apply(on);
+    });
+  }
+
   function init() {
     loadDashboard();
     setupDocRequests();
     setupApptModal();
+    setupFontToggle(); // M2
     initViews();
   }
 

@@ -612,7 +612,7 @@ async function apiDashboardPatient(req, res) {
                WHERE patient_id=$1 AND active ORDER BY start_date ASC NULLS LAST, id`, [p.id]),
     db.query(`SELECT doc_type, requested_at, status FROM documents
                WHERE patient_id=$1 ORDER BY requested_at DESC LIMIT 5`, [p.id]),
-    db.query(`SELECT billed_at, item, amount FROM bills
+    db.query(`SELECT billed_at, item, amount, paid FROM bills
                WHERE patient_id=$1 ORDER BY billed_at DESC, id DESC LIMIT 3`, [p.id]),
     db.query(`SELECT COALESCE(sum(amount), 0)::int AS s FROM bills WHERE patient_id=$1 AND NOT paid`, [p.id]),
     db.query(`SELECT measured_at, systolic, diastolic, glucose, weight_kg, bmi FROM vitals
@@ -633,6 +633,7 @@ async function apiDashboardPatient(req, res) {
     nextAppt = {
       dateLabel: `${fmtDateW(a.scheduled_at)} ${fmtTime(a.scheduled_at)}`,
       meta: apptMeta(a),
+      kind: a.kind || '', // M2: 준비 안내 문구용
       dday: Math.round((day1 - day0) / 86400000)
     };
   }
@@ -664,7 +665,7 @@ async function apiDashboardPatient(req, res) {
     })),
     meds: medR.rows.map((r) => ({ name: r.drug_name, dosage: r.dosage })),
     docs: docR.rows.map((r) => ({ type: r.doc_type, date: fmtDate(r.requested_at), status: r.status, statusLabel: DOC_STATUS_LABEL[r.status] || r.status })),
-    bills: { unpaid: unpaidR.rows[0].s, rows: billR.rows.map((r) => ({ date: fmtDate(r.billed_at), item: r.item, amount: r.amount })) },
+    bills: { unpaid: unpaidR.rows[0].s, rows: billR.rows.map((r) => ({ date: fmtDate(r.billed_at), item: r.item, amount: r.amount, paid: r.paid })) }, // M2: paid 배지용
     health,
     alertCount: docReqCntR.rows[0].c + weekApptR.rows[0].c
   });
