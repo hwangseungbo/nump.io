@@ -22,7 +22,7 @@
   if (fieldEl) {
     var note = document.createElement('div');
     note.className = 'ai-note';
-    note.textContent = '대화 내용은 맞춤 상담을 위해 저장됩니다';
+    note.textContent = '답변은 AI가 자동 생성한 참고 정보이며 실제 의료진 상담을 대신하지 않습니다 · 대화 내용은 맞춤 상담을 위해 저장됩니다';
     note.style.cssText = 'font-size:11px;text-align:center;color:var(--muted,#9aa7b0);margin:6px 0 0;';
     if (fieldEl.nextSibling) box.insertBefore(note, fieldEl.nextSibling);
     else box.appendChild(note);
@@ -44,7 +44,7 @@
       wrap.className = 'ai-doc-pick';
       wrap.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:0 0 6px;font-size:11px;color:var(--muted,#9aa7b0);';
       var lab = document.createElement('span');
-      lab.textContent = '상담 스타일';
+      lab.textContent = 'AI 상담 스타일';
       doctorSel = document.createElement('select');
       doctorSel.style.cssText = 'font-family:inherit;font-size:11px;color:inherit;background:transparent;border:1px solid var(--line,#e2e8e2);border-radius:8px;padding:3px 6px;outline:none;cursor:pointer;';
       var opt0 = document.createElement('option');
@@ -66,7 +66,7 @@
       function updateHead() {
         if (!subEl) return;
         var nm = docNames[doctorSel.value];
-        subEl.textContent = nm ? '· ' + nm + ' 원장님께 무엇이든 물어보세요' : subOrig;
+        subEl.textContent = nm ? '· ' + nm + ' 원장님 스타일로 AI가 답해드려요' : subOrig;
       }
       // 의사별 세션 분리 — 업스트림 히스토리에 스타일이 섞이지 않게
       doctorSel.addEventListener('change', function () {

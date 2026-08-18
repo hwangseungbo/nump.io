@@ -75,6 +75,35 @@
     if (t && label) t.textContent = label;
   }
 
+  /* ---------- 오늘 일정: 병동 실데이터 렌더 ----------
+     todaySchedule 배열이 오면 정적 목업 행을 전부 제거하고 실데이터로 재구성.
+     필드 부재(구서버)면 기존 정적 행 유지. DB 유래 문자열은 전부 textContent(el 헬퍼). */
+  var SCHED_ST_LABEL = { done: '완료', no_show: '미방문' };
+  function renderTodaySchedule(rows) {
+    if (!Array.isArray(rows)) return; // 구서버 — 정적 행 유지
+    var lbl = $('#todayLabel');
+    var card = lbl && lbl.parentNode;
+    if (!card) return;
+    removeAll('.tl-row', card);
+    if (!rows.length) {
+      var empty = el('div', 'tl-row');
+      empty.appendChild(el('span', 'l', '오늘 등록된 병동 일정이 없습니다'));
+      card.appendChild(empty);
+      return;
+    }
+    rows.forEach(function (r) {
+      var row = el('div', 'tl-row');
+      row.appendChild(el('span', 'dot'));
+      row.appendChild(el('span', 'h', r.time || ''));
+      var label = (r.kind || '') + (SCHED_ST_LABEL[r.status] ? ' · ' + SCHED_ST_LABEL[r.status] : '');
+      row.appendChild(el('span', 'l', label));
+      var rm = el('span', 'rm', (r.patientName || '') + (r.room ? ' · ' + r.room : ''));
+      rm.style.cssText = 'margin-left:auto;color:var(--muted);font-size:12px';
+      row.appendChild(rm);
+      card.appendChild(row);
+    });
+  }
+
   /* ---------- 서류 요청 현황 ---------- */
   function renderDocRequests(rows) {
     var card = $('#docReqCard');
@@ -284,6 +313,7 @@
     renderSidebarStats(d.sidebar);
     renderPatients(d);
     renderTodayLabel(d.todayLabel);
+    renderTodaySchedule(d.todaySchedule);
     renderDocRequests(d.docRequests);
     renderSafety(d.safety);
     renderAlerts(d.alerts, d.alertCount);

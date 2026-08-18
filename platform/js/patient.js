@@ -398,11 +398,11 @@
     renderProfile(d.profile);
     renderBills(d.bills);
     renderHealth(d.health);
-    renderBadge(d.alertCount);
     bellItems = [];
     if (d.nextAppt && d.nextAppt.dateLabel) bellItems.push({ t: '다음 예약 ' + d.nextAppt.dateLabel, h: '#view-appt' });
     if (d.bills && d.bills.unpaid > 0) bellItems.push({ t: '미납 진료비 ' + d.bills.unpaid.toLocaleString() + '원', h: '#view-bills' });
     if (Array.isArray(d.docs) && d.docs.length) bellItems.push({ t: '서류 신청·발급 ' + d.docs.length + '건', h: '#view-docs' });
+    renderBadge(bellItems.length); // 배지 = 드롭다운 목록 건수 (서버 alertCount와 불일치 방지)
     if (Array.isArray(d.docs)) {
       docsData = d.docs;
       var list = $('#bnDocsList');

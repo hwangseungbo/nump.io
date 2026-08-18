@@ -132,7 +132,7 @@ const ensureSafety = (pid, eventType, occurredAt) => ensure('safety_events',
   [pid, eventType, occurredAt]);
 
 // ── 데이터 정의 ──────────────────────────────────────────────
-const DOCTORS = [ // doctor1(홍길동·가정의학과)은 기존 계정
+const DOCTORS = [ // doctor1(홍성민·가정의학과)은 기존 계정
   { username: 'doctor2', name: '김서준', dept: '내과',         title: '과장' },
   { username: 'doctor3', name: '이하은', dept: '정형외과',     title: '과장' },
   { username: 'doctor4', name: '박민재', dept: '소아청소년과', title: '전문의' },

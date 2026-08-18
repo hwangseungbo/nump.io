@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Basil Nexus · 의사 화면</title>
-<meta name="description" content="홍길동 원장님의 진료 일정·환자 요약·수가 청구·영상 분석을 한 곳에서." />
+<meta name="description" content="홍성민 원장님의 진료 일정·환자 요약·수가 청구·영상 분석을 한 곳에서." />
 <link rel="icon" href="../../assets/favicon.ico" sizes="any" />
 <link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
 <meta name="theme-color" content="#2f9e57" />
@@ -76,6 +76,7 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
 .ai-stream p{ margin:0 0 6px; }
 .flg-l{ color:#e5484d; font-weight:700; }
 .flg-h{ color:#2e7aa8; font-weight:700; }
+.demo-badge{ font-size:11px; color:var(--muted); font-weight:600; margin-left:4px; }
 </style>
 </head>
 <body data-role="doctor">
@@ -91,9 +92,9 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
     <span class="role-badge">의사 화면</span>
 
     <div class="sb-profile">
-      <img class="ava" src="../../assets/av-doctor.png" alt="홍길동 원장님" />
+      <img class="ava" src="../../assets/av-doctor.png" alt="홍성민 원장님" />
       <div>
-        <div class="pn">홍길동 원장님</div>
+        <div class="pn">홍성민 원장님</div>
         <div class="pm">가정의학과</div>
         <div class="on">온라인</div>
       </div>
@@ -133,7 +134,7 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
 
   <!-- ════════ 메인 ════════ -->
   <main class="main">
-    <div class="hello"><em>홍길동 원장님</em>, 오늘도 환자 중심의 스마트한 진료를 시작하세요!</div>
+    <div class="hello"><em>홍성민 원장님</em>, 오늘도 환자 중심의 스마트한 진료를 시작하세요!</div>
     <div class="hello-sub">진료·수가·문서·영상까지, AI가 함께 봅니다.</div>
 
     <!-- AI 입력 -->
@@ -201,10 +202,11 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
         <div class="stat-mini"><span class="smi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 8l8 8M16 8l-8 8"/></svg></span><span><span class="smn">1명</span> <span class="sml">No-Show</span></span></div>
       </div>
       <div class="stat4">
-        <div class="s4"><div class="s4l">총 진료 수</div><div class="s4n">256건</div><span class="delta up">▲ 18%</span></div>
-        <div class="s4"><div class="s4l">수가 청구액</div><div class="s4n">28,450,000원</div><span class="delta up">▲ 12%</span></div>
-        <div class="s4"><div class="s4l">삭감 금액</div><div class="s4n">1,250,000원</div><span class="delta down">▼ 32%</span></div>
-        <div class="s4"><div class="s4l">환자 만족도</div><div class="s4n">4.8 / 5.0</div><span class="delta up">▲ 0.3</span></div>
+        <!-- 총 진료 수 숫자만 실데이터(renderMonthStats가 .s4n 갱신) — 나머지 정적 항목은 '데모' 뱃지로 구분 -->
+        <div class="s4"><div class="s4l">총 진료 수</div><div class="s4n">256건</div><span class="delta up">▲ 18%</span><span class="demo-badge">데모</span></div>
+        <div class="s4"><div class="s4l">수가 청구액 <span class="demo-badge">데모</span></div><div class="s4n">28,450,000원</div><span class="delta up">▲ 12%</span></div>
+        <div class="s4"><div class="s4l">삭감 금액 <span class="demo-badge">데모</span></div><div class="s4n">1,250,000원</div><span class="delta down">▼ 32%</span></div>
+        <div class="s4"><div class="s4l">환자 만족도 <span class="demo-badge">데모</span></div><div class="s4n">4.8 / 5.0</div><span class="delta up">▲ 0.3</span></div>
       </div>
     </div>
 
@@ -302,7 +304,7 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="../js/auth.js?v=3"></script>
-<script src="../js/ai.js?v=12"></script>
+<script src="../js/ai.js?v=13"></script>
 <script src="../js/doctor.js?v=5"></script>
 </body>
 </html>

@@ -13,7 +13,7 @@ function hashPassword(pw) {
 const USERS = [
   { username: 'admin',    password: 'admin1234',   name: '관리자',  role: 'admin',
     profile: {} },
-  { username: 'doctor1',  password: 'doctor1234',  name: '홍길동',  role: 'doctor',
+  { username: 'doctor1',  password: 'doctor1234',  name: '홍성민',  role: 'doctor',
     profile: { department: '가정의학과', title: '원장' } },
   { username: 'nurse1',   password: 'nurse1234',   name: '김나연',  role: 'nurse',
     profile: { ward: '내과 병동', title: '간호사' } },

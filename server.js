@@ -427,7 +427,7 @@ async function apiDashboardNurse(req, res) {
     ward = w.rows.length ? w.rows[0].w : '내과 병동';
   }
   const [sbR, cntR, patR, safetyR, medR, labR, careR, admR, docsAllR, memosR,
-         inR, testR, surgR, docContactsR, notesR, docRequests] = await Promise.all([
+         inR, testR, surgR, docContactsR, notesR, schedR, docRequests] = await Promise.all([
     db.query(`SELECT count(*) FILTER (WHERE note_type='활력징후')::int AS vitals,
                      count(*) FILTER (WHERE note_type='투약')::int   AS meds
                 FROM nursing_notes WHERE created_at::date=CURRENT_DATE`),
@@ -462,6 +462,13 @@ async function apiDashboardNurse(req, res) {
                        WHERE a.patient_id=n.patient_id AND a.status='admitted'
                        ORDER BY a.admitted_at DESC LIMIT 1) AS room
                 FROM nursing_notes n ORDER BY n.created_at DESC LIMIT 5`),
+    // 오늘 일정 카드용 — 내 병동 입원 환자 대상의 오늘 예약만 시간순 최대 6건 (정적 목업 대체)
+    db.query(`SELECT a.scheduled_at, a.kind, a.status, p.name, ad.room
+                FROM appointments a
+                JOIN patients p ON p.id=a.patient_id
+                JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$1
+               WHERE a.scheduled_at::date=CURRENT_DATE AND a.status<>'cancelled'
+               ORDER BY a.scheduled_at LIMIT 6`, [ward]),
     getDocRequests(db)
   ]);
   // 담당 환자 5명 — 오늘 예약 kind 최우선 1건 태그 매핑 (검사>투약>처치, 그 외 null)
@@ -495,6 +502,9 @@ async function apiDashboardNurse(req, res) {
   contacts.push({ initial: '수', name: '수간호사', phone: '010-9876-5432' });
   sendJson(res, 200, {
     todayLabel: fmtDateW(new Date()),
+    todaySchedule: schedR.rows.map((r) => ({
+      time: fmtTime(r.scheduled_at), kind: r.kind, patientName: r.name, room: r.room || '', status: r.status
+    })),
     sidebar: { vitals: sbR.rows[0].vitals, meds: sbR.rows[0].meds },
     patientCount: cntR.rows[0].c,
     patients,
