@@ -32,6 +32,9 @@
 .vt tbody td{ padding:10px; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:middle; }
 .vt tbody tr:hover{ background:var(--line-2); }
 .vt tbody tr.click{ cursor:pointer; }
+.vt tbody tr.click:hover td{ background:var(--page); }
+.sch-row.click{ cursor:pointer; border-radius:8px; }
+.sch-row.click:hover{ background:var(--page); }
 .vt .b{ font-weight:700; color:var(--ink); }
 .pgr{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px; font-size:12.5px; font-weight:600; color:var(--muted); }
 .pgr button{ font:inherit; font-weight:700; color:var(--accent-d); background:var(--card); border:1px solid var(--line); border-radius:9px; padding:6px 12px; cursor:pointer; }
@@ -305,6 +308,6 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="../js/auth.js?v=3"></script>
 <script src="../js/ai.js?v=13"></script>
-<script src="../js/doctor.js?v=7"></script>
+<script src="../js/doctor.js?v=8"></script>
 </body>
 </html>

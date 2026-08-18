@@ -155,7 +155,8 @@
   /* ---------- 메모 / 전달 사항 ---------- */
   function buildMemoRow(m) {
     var row = el('div', 'memo-row');
-    row.appendChild(el('span', 'memo-t', m.time || ''));
+    // P3b: 오늘이 아닌 메모는 날짜(예: 7/24)를 시간 앞에 표기 — 옛 메모 오인 방지
+    row.appendChild(el('span', 'memo-t', (m.date ? m.date + ' ' : '') + (m.time || '')));
     var b = el('div', 'memo-b');
     b.appendChild(el('div', 'mt', m.text || ''));
     b.appendChild(el('div', 'mw', m.author || ''));
@@ -721,6 +722,96 @@
     load();
   }
 
+  /* ---------- P3b 뷰: 인계(핸드오버) 보드 ---------- */
+  function renderHandoverView(host) {
+    var head = viewHead('인계 보드', '근무조 기준 병동 환자 현황 — 바이탈·간호기록·남은 일정');
+    host.appendChild(head);
+    var sub = head.querySelector('.vh-sub');
+    var card = el('div', 'card');
+    var bar = el('div', 'vw-toolbar');
+    var SHIFTS = [['day', '데이'], ['evening', '이브닝'], ['night', '나이트']];
+    var btns = {};
+    var cur = null; // null이면 서버가 현재 시각 기준 근무조 선택
+    SHIFTS.forEach(function (s) {
+      var b = vbtn(s[1], 'ghost sm');
+      b.addEventListener('click', function () { cur = s[0]; load(); });
+      btns[s[0]] = b;
+      bar.appendChild(b);
+    });
+    card.appendChild(bar);
+    var box = el('div');
+    card.appendChild(box);
+    host.appendChild(card);
+    var memoCard = el('div', 'card');
+    memoCard.style.marginTop = '16px';
+    host.appendChild(memoCard);
+
+    function vitalText(v) {
+      if (!v) return '-';
+      var s = v.time + ' ';
+      s += (v.systolic != null && v.diastolic != null) ? v.systolic + '/' + v.diastolic : '-';
+      if (v.glucose != null) s += ' · 혈당 ' + v.glucose;
+      return s;
+    }
+    function listCell(items, fmt, emptyText) { // 여러 줄 셀 (전부 textContent)
+      var wrap = el('div');
+      if (!items.length) { wrap.appendChild(el('div', 'muted', emptyText)); return wrap; }
+      items.forEach(function (it) {
+        var d = el('div', null, fmt(it));
+        d.style.cssText = 'font-size:12px;margin:1px 0;';
+        wrap.appendChild(d);
+      });
+      return wrap;
+    }
+    function load() {
+      box.innerHTML = '';
+      memoCard.innerHTML = '';
+      fetchJson('/api/handover' + (cur ? '?shift=' + cur : '')).then(function (d) {
+        cur = d.shift;
+        SHIFTS.forEach(function (s) { // 활성 근무조는 솔리드, 나머지는 ghost
+          btns[s[0]].className = 'vbtn sm' + (s[0] === cur ? '' : ' ghost');
+        });
+        if (sub) sub.textContent = (d.ward || '') + ' · ' + (d.shiftLabel || '') + ' 기준';
+        var pats = Array.isArray(d.patients) ? d.patients.slice() : [];
+        // 미완료 일정이 있는 환자를 상단으로 (안정 정렬 — 그 외는 병실순 유지)
+        pats.sort(function (a, b) {
+          return (b.pendingToday.length ? 1 : 0) - (a.pendingToday.length ? 1 : 0);
+        });
+        if (!pats.length) { box.appendChild(el('div', 'empty', '이번 근무조 기록이 없습니다')); }
+        else {
+          var t = makeTable(['병실', '환자', '진단', '최근 바이탈', '근무조 간호기록', '남은 일정']);
+          pats.forEach(function (p) {
+            var tr = document.createElement('tr');
+            tr.appendChild(td(p.room || '-'));
+            tr.appendChild(td(p.name + ' (' + (p.sex || '') + '/' + (p.age != null ? p.age : '') + ')'));
+            tr.appendChild(td(p.dx || '-'));
+            tr.appendChild(td(vitalText(p.lastVital)));
+            tr.appendChild(td(listCell(p.notes, function (n) {
+              return n.time + ' [' + n.type + '] ' + n.content;
+            }, '기록 없음')));
+            tr.appendChild(td(listCell(p.pendingToday, function (a) {
+              return a.time + ' ' + a.kind;
+            }, '-')));
+            t.tbody.appendChild(tr);
+          });
+          box.appendChild(t.wrap);
+        }
+        memoCard.appendChild(el('div', 'sub-t', '근무조 메모'));
+        var memos = Array.isArray(d.memos) ? d.memos : [];
+        if (!memos.length) memoCard.appendChild(el('div', 'empty', '이번 근무조 메모가 없습니다'));
+        else memos.forEach(function (m) {
+          var row = el('div', null);
+          row.style.cssText = 'font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line-2,#eee);';
+          row.appendChild(el('span', 'muted', m.time + ' '));
+          row.appendChild(el('span', null, m.content));
+          row.appendChild(el('span', 'muted', ' — ' + m.author));
+          memoCard.appendChild(row);
+        });
+      }).catch(function () { loadFail(box); });
+    }
+    load();
+  }
+
   /* ---------- 뷰: 투약 / 검사·처치 (오늘 워크리스트 공용) ---------- */
   function renderWorklist(host, opt) {
     host.appendChild(viewHead(opt.title, opt.sub));
@@ -739,7 +830,16 @@
         rows.forEach(function (r) {
           var tr = document.createElement('tr');
           tr.appendChild(td(r.time));
-          tr.appendChild(td(r.name));
+          // P3b: 투약 건은 환자명 아래에 활성 처방(약품명·용량) 나열 — meds 부재(구서버)면 기존 표시
+          var nameCell = td(r.name);
+          if (Array.isArray(r.meds) && r.meds.length) {
+            var ml = el('div', 'muted', r.meds.map(function (m) {
+              return (m.drug || '') + (m.dosage ? ' — ' + m.dosage : '');
+            }).join(', '));
+            ml.style.cssText = 'font-size:11.5px;font-weight:400;margin-top:2px;';
+            nameCell.appendChild(ml);
+          }
+          tr.appendChild(nameCell);
           tr.appendChild(td((r.sex || '') + '/' + (r.age != null ? r.age : '')));
           tr.appendChild(td(r.room || '-'));
           tr.appendChild(td(r.kind));
@@ -1151,6 +1251,7 @@
     search: renderSearchView,
     admission: renderAdmissionView,
     schedule: renderScheduleView,
+    handover: renderHandoverView,
     meds: renderMedsView,
     tests: renderTestsView,
     notes: renderNotesView,

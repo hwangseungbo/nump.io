@@ -85,8 +85,22 @@
         '<span class="nm">' + esc(nmLabel(s)) + '</span>' +
         '<span class="dx">' + esc(s.dx) + '</span>' +
         '<span class="st ' + m[0] + '">' + m[1] + '</span>';
+      // P3b: 행 클릭 → 해당 환자 EMR 상세로 (patientId 없으면(구서버) 기존처럼 정적 행)
+      if (s.patientId != null) {
+        row.classList.add('click');
+        row.title = '클릭하면 환자 EMR 상세로 이동합니다';
+        row.addEventListener('click', function () { gotoEmr(s.patientId); });
+      }
       if (foot) card.insertBefore(row, foot); else card.appendChild(row);
     });
+  }
+
+  // P3b: 일정 행 → 환자 검색 뷰로 EMR 딥링크 (bn.docType 패턴과 동일한 1회용 키)
+  function gotoEmr(patientId) {
+    try { sessionStorage.setItem('bn.emrPid', String(patientId)); } catch (e) {}
+    // 이미 같은 뷰에 있으면 hashchange가 안 일어나므로 강제로 재렌더 (알림 딥링크와 동일 패턴)
+    if (location.hash === '#view-search') window.dispatchEvent(new Event('hashchange'));
+    else location.hash = '#view-search';
   }
 
   // "나의 서류 요청 현황"
@@ -419,7 +433,7 @@
 
   /* ---------- 공용 컴포넌트: 환자 검색 + 목록 (계약 1-1) ---------- */
   // host에 검색 카드 + 목록 카드를 붙이고, 행 클릭 시 onPick(patientDetail) 호출
-  function patientPicker(host, onPick, initialQ) {
+  function patientPicker(host, onPick, initialQ, autoPickFirst) {
     var bar = h('div', 'card');
     var sr = h('div', 'v-search');
     var inp = document.createElement('input');
@@ -448,6 +462,8 @@
           t.tbody.appendChild(row);
         });
         listCard.appendChild(t.wrap);
+        // P3b: 일정 클릭스루 — 첫 결과의 EMR 상세를 즉시 펼침 (1회만)
+        if (autoPickFirst) { autoPickFirst = false; onPick(results[0]); }
       }).catch(function (e) {
         console.warn('환자 목록 조회 실패:', e);
         listCard.innerHTML = '';
@@ -507,10 +523,16 @@
     var detail = h('div', null);
     viewHost.appendChild(pickWrap);
     viewHost.appendChild(detail);
+    // P3b: 일정 행 클릭스루 — bn.emrPid(1회용)가 있으면 해당 환자를 즉시 검색·펼침
+    var emrPid = '';
+    try {
+      emrPid = sessionStorage.getItem('bn.emrPid') || '';
+      if (emrPid) sessionStorage.removeItem('bn.emrPid');
+    } catch (e) { emrPid = ''; }
     patientPicker(pickWrap, function (p) {
       renderEmrDetail(detail, p);
       detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, takeHandoffQuery());
+    }, emrPid || takeHandoffQuery(), !!emrPid);
   }
 
   // EMR 상세 카드(진단·처방·바이탈·검사 + AI 요약) — search 뷰
@@ -690,10 +712,17 @@
         if (sub && d.dateLabel) sub.textContent = d.dateLabel + ' 담당 예약';
         var rows = (d && d.rows) || [];
         if (!rows.length) { listWrap.appendChild(h('div', 'empty', '해당 날짜의 예약이 없습니다')); return; }
-        var t = makeTable(['시간', '환자', '구분', '상태']);
+        // P3b: 진단 컬럼 + 행 클릭 → 환자 EMR (patientId 없으면(구서버) 기존 표만)
+        var t = makeTable(['시간', '환자', '진단', '구분', '상태']);
         rows.forEach(function (a) {
-          t.tbody.appendChild(trow([bcell(a.time), nmLabel(a), a.kind,
-            stBadge(stCls[a.status] || 'wait', a.statusLabel || a.status)]));
+          var row = trow([bcell(a.time), nmLabel(a), a.dx || '-', a.kind,
+            stBadge(stCls[a.status] || 'wait', a.statusLabel || a.status)]);
+          if (a.patientId != null) {
+            row.className = 'click';
+            row.title = '클릭하면 환자 EMR 상세로 이동합니다';
+            row.addEventListener('click', function () { gotoEmr(a.patientId); });
+          }
+          t.tbody.appendChild(row);
         });
         listWrap.appendChild(t.wrap);
       }).catch(function (e) {

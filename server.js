@@ -395,7 +395,7 @@ async function apiDashboardDoctor(req, res) {
     if (d.rows.length) doctorId = d.rows[0].id;
   }
   const [schedR, noShowR, encR, recentR, alertR, docRequests] = await Promise.all([
-    db.query(`SELECT a.scheduled_at, a.status, p.name, p.sex, p.birth_date,
+    db.query(`SELECT a.scheduled_at, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date,
                      COALESCE((SELECT string_agg(d.name, '·' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
                                  FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
                 FROM appointments a JOIN patients p ON p.id=a.patient_id
@@ -422,7 +422,9 @@ async function apiDashboardDoctor(req, res) {
       if (!nowMarked && t <= nowMs && nowMs < t + 30 * 60 * 1000) { status = 'now'; nowMarked = true; }
       else status = 'wait';
     }
-    return { time: fmtTime(r.scheduled_at), name: r.name, sex: r.sex, age: calcAge(r.birth_date), dx: r.dx, status };
+    // P3b: patientId — 일정 행 → EMR 클릭스루용
+    return { time: fmtTime(r.scheduled_at), patientId: r.patient_id, name: r.name, sex: r.sex,
+             age: calcAge(r.birth_date), dx: r.dx, status };
   });
   // P2: '진료 대기'에서 진료 중 1건 이중계산 제거
   const waiting = schedR.rows.filter((r) => r.status === 'scheduled').length - (nowMarked ? 1 : 0);
@@ -545,7 +547,14 @@ async function apiDashboardNurse(req, res) {
     safety: { fall: safetyMap.get('낙상') || 0, sore: safetyMap.get('욕창') || 0,
               medError: safetyMap.get('투약오류') || 0, infection: safetyMap.get('감염') || 0 },
     alerts,
-    memos: memosR.rows.map((r) => ({ time: fmtTime(r.created_at), text: r.content, author: memoAuthor(r.name, r.role) })),
+    // P3b: 오늘이 아닌 메모에는 날짜 라벨 첨부 — 옛 메모가 오늘 것처럼 보이는 문제 해소
+    memos: memosR.rows.map((r) => {
+      const d = new Date(r.created_at);
+      const t = new Date();
+      const isToday = d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+      return { time: fmtTime(d), date: isToday ? null : `${d.getMonth() + 1}/${d.getDate()}`,
+               text: r.content, author: memoAuthor(r.name, r.role) };
+    }),
     ward: { inpatients: inR.rows[0].c, dischargeDue: admR.rows[0].c,
             testsToday: testR.rows[0].c, surgeriesToday: surgR.rows[0].c },
     contacts,
@@ -846,11 +855,17 @@ async function apiAppointmentsGet(req, res) {
   // nurse(또는 admin scope=ward/all): P2 — 기본은 내 병동 입원 환자 건만, ?scope=all이면 병원 전체
   if (me.role === 'nurse' || (me.role === 'admin' && (scope === 'ward' || scope === 'all'))) {
     const wardScoped = scope !== 'all';
+    // P3b: 투약 건에는 활성 처방 요약(meds) 첨부 — 5 Rights 확인용 (최대 5건)
+    const MEDS_SQL = `CASE WHEN a.kind='투약' THEN
+              (SELECT json_agg(json_build_object('drug', x.drug_name, 'dosage', x.dosage))
+                 FROM (SELECT drug_name, dosage FROM prescriptions
+                        WHERE patient_id=a.patient_id AND active ORDER BY id LIMIT 5) x)
+            END AS meds`;
     let ward = null, r;
     if (wardScoped) {
       ward = await nurseWard(db, me);
       r = await db.query(
-        `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date, ad.room
+        `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date, ad.room, ${MEDS_SQL}
            FROM appointments a JOIN patients p ON p.id=a.patient_id
            JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$2
           WHERE a.scheduled_at::date=$1::date
@@ -860,7 +875,7 @@ async function apiAppointmentsGet(req, res) {
         `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date,
                 (SELECT ad.room FROM admissions ad
                   WHERE ad.patient_id=a.patient_id AND ad.status='admitted'
-                  ORDER BY ad.admitted_at DESC LIMIT 1) AS room
+                  ORDER BY ad.admitted_at DESC LIMIT 1) AS room, ${MEDS_SQL}
            FROM appointments a JOIN patients p ON p.id=a.patient_id
           WHERE a.scheduled_at::date=$1::date
           ORDER BY a.scheduled_at, a.id`, [dateParam]);
@@ -869,11 +884,15 @@ async function apiAppointmentsGet(req, res) {
       dateLabel: fmtDateKo(day),
       scope: wardScoped ? 'ward' : 'all',
       ward: ward,
-      rows: r.rows.map((x) => ({
-        id: x.id, time: fmtTime(x.scheduled_at), name: x.name, sex: x.sex, age: calcAge(x.birth_date),
-        kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status,
-        room: x.room || ''
-      }))
+      rows: r.rows.map((x) => {
+        const row = {
+          id: x.id, time: fmtTime(x.scheduled_at), name: x.name, sex: x.sex, age: calcAge(x.birth_date),
+          kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status,
+          room: x.room || ''
+        };
+        if (x.kind === '투약') row.meds = x.meds || [];
+        return row;
+      })
     });
   }
 
@@ -883,15 +902,19 @@ async function apiAppointmentsGet(req, res) {
     const d = await db.query(`SELECT id FROM users WHERE role='doctor' AND active ORDER BY id LIMIT 1`);
     if (d.rows.length) doctorId = d.rows[0].id;
   }
+  // P3b: patientId·dx 포함 — 일정 행 → EMR 클릭스루 + 진단 컬럼
   const r = await db.query(
-    `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date
+    `SELECT a.id, a.scheduled_at, a.kind, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date,
+            COALESCE((SELECT string_agg(d.name, '·' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
+                        FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
        FROM appointments a JOIN patients p ON p.id=a.patient_id
       WHERE a.doctor_id=$1 AND a.scheduled_at::date=$2::date
       ORDER BY a.scheduled_at, a.id`, [doctorId, dateParam]);
   sendJson(res, 200, {
     dateLabel: fmtDateKo(day),
     rows: r.rows.map((x) => ({
-      id: x.id, time: fmtTime(x.scheduled_at), name: x.name, sex: x.sex, age: calcAge(x.birth_date),
+      id: x.id, time: fmtTime(x.scheduled_at), patientId: x.patient_id, name: x.name, sex: x.sex,
+      age: calcAge(x.birth_date), dx: x.dx,
       kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status
     }))
   });
@@ -1366,6 +1389,78 @@ async function apiStatsNurse(req, res) {
   });
 }
 
+// P3b: GET /api/handover?shift=day|evening|night — 간호 인계(핸드오버) 보드 (nurse 전용)
+// 근무조: day 07~15시 / evening 15~23시 / night 23~07시(자정 걸침).
+// night는 "가장 최근(또는 진행 중) 밤": 23시 이후면 금일 23시~익일 07시, 그 외는 전일 23시~금일 07시.
+function currentShift(now) {
+  const h = now.getHours();
+  if (h >= 7 && h < 15) return 'day';
+  if (h >= 15 && h < 23) return 'evening';
+  return 'night';
+}
+function shiftRange(shift, now) {
+  const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+  const at = (dayOff, h) => new Date(d0.getTime() + dayOff * 86400000 + h * 3600000);
+  if (shift === 'day')     return { from: at(0, 7),  to: at(0, 15) };
+  if (shift === 'evening') return { from: at(0, 15), to: at(0, 23) };
+  return now.getHours() >= 23 ? { from: at(0, 23), to: at(1, 7) } : { from: at(-1, 23), to: at(0, 7) };
+}
+async function apiHandover(req, res) {
+  const me = await requireRole(req, res, ['nurse']);
+  if (!me) return;
+  const db = getPool();
+  const ward = await nurseWard(db, me);
+  const now = new Date();
+  let shift = String(url.parse(req.url, true).query.shift || '');
+  if (!['day', 'evening', 'night'].includes(shift)) shift = currentShift(now);
+  const { from, to } = shiftRange(shift, now);
+  const [patR, memoR] = await Promise.all([
+    db.query(`SELECT p.id, p.name, p.sex, p.birth_date, a.room,
+                     COALESCE((SELECT string_agg(d.name, ', ' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
+                                 FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
+                FROM admissions a JOIN patients p ON p.id=a.patient_id
+               WHERE a.status='admitted' AND a.ward=$1 ORDER BY a.room, p.id`, [ward]),
+    db.query(`SELECT m.created_at, m.content, u.name, u.role
+                FROM memos m LEFT JOIN users u ON u.id=m.author_id
+               WHERE m.created_at >= $1 AND m.created_at < $2
+               ORDER BY m.created_at DESC`, [from, to]),
+  ]);
+  const ids = patR.rows.map((r) => r.id);
+  const [vitR, noteR, apptR] = ids.length ? await Promise.all([
+    db.query(`SELECT DISTINCT ON (patient_id) patient_id, measured_at, systolic, diastolic, glucose
+                FROM vitals WHERE patient_id = ANY($1::int[])
+               ORDER BY patient_id, measured_at DESC, id DESC`, [ids]),
+    db.query(`SELECT patient_id, created_at, note_type, content FROM nursing_notes
+               WHERE patient_id = ANY($1::int[]) AND created_at >= $2 AND created_at < $3
+               ORDER BY created_at`, [ids, from, to]),
+    db.query(`SELECT patient_id, scheduled_at, kind FROM appointments
+               WHERE patient_id = ANY($1::int[]) AND status='scheduled'
+                 AND scheduled_at::date=CURRENT_DATE AND scheduled_at >= now()
+               ORDER BY scheduled_at`, [ids]),
+  ]) : [{ rows: [] }, { rows: [] }, { rows: [] }];
+  const group = (rows) => {
+    const m = new Map();
+    rows.forEach((r) => { if (!m.has(r.patient_id)) m.set(r.patient_id, []); m.get(r.patient_id).push(r); });
+    return m;
+  };
+  const vitMap = new Map(vitR.rows.map((r) => [r.patient_id, r]));
+  const noteMap = group(noteR.rows), apptMap = group(apptR.rows);
+  const SHIFT_LABEL = { day: '데이 (07–15시)', evening: '이브닝 (15–23시)', night: '나이트 (23–07시)' };
+  sendJson(res, 200, {
+    ward, shift, shiftLabel: SHIFT_LABEL[shift],
+    patients: patR.rows.map((r) => {
+      const v = vitMap.get(r.id);
+      return {
+        room: r.room || '', name: r.name, sex: r.sex, age: calcAge(r.birth_date), dx: r.dx,
+        lastVital: v ? { time: fmtTime(v.measured_at), systolic: v.systolic, diastolic: v.diastolic, glucose: v.glucose } : null,
+        notes: (noteMap.get(r.id) || []).map((n) => ({ time: fmtTime(n.created_at), type: n.note_type, content: n.content })),
+        pendingToday: (apptMap.get(r.id) || []).map((a) => ({ time: fmtTime(a.scheduled_at), kind: a.kind }))
+      };
+    }),
+    memos: memoR.rows.map((r) => ({ time: fmtTime(r.created_at), content: r.content, author: memoAuthor(r.name, r.role) }))
+  });
+}
+
 // §1-11 POST /api/me/password — 전 역할 비밀번호 변경
 async function apiMePassword(req, res) {
   const me = await currentUser(req);
@@ -1788,6 +1883,7 @@ async function handle(req, res) {
   if (pathname === '/api/memos'        && req.method === 'GET')  return apiMemosGet(req, res);
   if (pathname === '/api/stats/doctor' && req.method === 'GET')  return apiStatsDoctor(req, res);
   if (pathname === '/api/stats/nurse'  && req.method === 'GET')  return apiStatsNurse(req, res);
+  if (pathname === '/api/handover'     && req.method === 'GET')  return apiHandover(req, res);
   if (pathname === '/api/me/password'  && req.method === 'POST') return apiMePassword(req, res);
   // PATCH /api/{documents|appointments|admissions|bills}/:id — id는 양의 정수만
   const pm = pathname.match(/^\/api\/(documents|appointments|admissions|bills)\/([^/]+)$/);
