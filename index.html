@@ -601,15 +601,28 @@
       panel.classList.toggle('open');
     });
 
+    // 연령·성별 아바타 세트(assets/avatars) — 역할 선택 시 랜덤 변형으로 다양성 표시
+    var AV_POOL = { doctor: [], nurse: [], patient: [] };
+    ['m', 'f'].forEach(function(sx){
+      [30, 40, 50, 60].forEach(function(b){ AV_POOL.doctor.push('assets/avatars/av-doctor-' + sx + '-' + b + '.png'); });
+      [20, 30, 40, 50].forEach(function(b){ AV_POOL.nurse.push('assets/avatars/av-nurse-' + sx + '-' + b + '.png'); });
+      ['00', 10, 20, 30, 40, 50, 60, 70, 80].forEach(function(b){ AV_POOL.patient.push('assets/avatars/av-patient-' + sx + '-' + b + '.png'); });
+    });
+    function randomAvatar(role){
+      var pool = AV_POOL[role];
+      return pool && pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    }
+
     // pick an avatar -> swap the hero character and close the panel
     opts.forEach(function(opt){
       opt.addEventListener('click', function(e){
         e.stopPropagation();
         opts.forEach(function(o){ o.classList.remove('active'); });
         opt.classList.add('active');
-        var av = opt.getAttribute('data-avatar');
+        var role = opt.getAttribute('data-role');
+        var av = randomAvatar(role) || opt.getAttribute('data-avatar');
         if(av){ charImg.src = av; }
-        currentRole = opt.getAttribute('data-role') || currentRole;
+        currentRole = role || currentRole;
         panel.classList.remove('open');
       });
     });
@@ -672,8 +685,9 @@
     fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
       renderAuthBox(me);
       if(!me) return;
-      if(AV[me.role]){
-        charImg.src = AV[me.role];
+      if(me.avatar || AV[me.role]){
+        // 대시보드와 동일하게 서버(apiMe)가 계산한 연령·성별 아바타 우선, 없으면 역할 기본 이미지
+        charImg.src = me.avatar ? 'assets/avatars/' + me.avatar : AV[me.role];
         opts.forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-role') === me.role); });
         currentRole = me.role;
       }
