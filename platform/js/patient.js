@@ -512,6 +512,17 @@
       });
     });
   }
+  function postJSON(url, body) { // patchJSON과 동일 스타일 — 토스 결제 API용
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        return { ok: r.ok, status: r.status, body: j };
+      });
+    });
+  }
 
   function apiErrMsg(res, fallback) {
     if (res && res.body && typeof res.body.error === 'string' && res.body.error) return res.body.error;
@@ -910,23 +921,70 @@
   }
 
   /* ---------- 뷰: 수납 / 결제 내역 (bills) ---------- */
+  /* ---------- 토스페이먼츠 결제창 v2 (기존 데모 PATCH 수납 대체) ---------- */
   function payBill(b) {
+    if (typeof TossPayments === 'undefined') { // SDK 미로드 (오프라인 등)
+      toast('결제 모듈을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.', true);
+      return;
+    }
     var label = (b.item || '') + ' ' + won(b.amount);
-    // M2: 데모 고지는 확인창 안에서 — 버튼 라벨은 '수납하기'로 정리
-    if (!window.confirm(label + '을(를) 수납 처리하시겠습니까?\n시연 환경에서는 실제 결제가 진행되지 않습니다.')) return;
-    patchJSON('/api/bills/' + b.id, { paid: true }).then(function (res) {
+    if (!window.confirm(label + ' 결제를 진행하시겠습니까?\n테스트 결제 환경으로, 실제 청구되지 않습니다.')) return;
+    postJSON('/api/bills/' + b.id + '/checkout', {}).then(function (res) {
       if (!res.ok) {
-        console.warn('[patient] PATCH /api/bills/' + b.id + ' ' + res.status);
-        toast(apiErrMsg(res, '수납 처리에 실패했습니다'), true);
+        console.warn('[patient] POST /api/bills/' + b.id + '/checkout ' + res.status);
+        toast(apiErrMsg(res, '결제를 시작할 수 없습니다'), true);
         return;
       }
-      toast('수납이 완료되었습니다');
-      refreshActiveView();
-      loadDashboard(); // 대시보드 진료비 패널 갱신
+      var d = res.body;
+      var payment = TossPayments(d.clientKey).payment({ customerKey: TossPayments.ANONYMOUS });
+      var base = location.origin + location.pathname; // 토스가 ?pay=…에 &로 파라미터를 이어붙임
+      return payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: d.amount },
+        orderId: d.orderId,
+        orderName: d.orderName || '진료비',
+        successUrl: base + '?pay=success',
+        failUrl: base + '?pay=fail',
+        customerName: d.customerName || '',
+        card: { useEscrow: false, flowMode: 'DEFAULT', useCardPoint: false, useAppCardOnly: false }
+      }).catch(function () { // 사용자가 결제창을 닫으면 reject됨
+        toast('결제가 취소되었습니다');
+      });
     }).catch(function (err) {
-      console.warn('[patient] PATCH /api/bills 실패:', err.message);
+      console.warn('[patient] checkout 실패:', err.message);
       toast('서버에 연결할 수 없습니다', true);
     });
+  }
+
+  /* ---------- 토스 결제 복귀 처리 (successUrl/failUrl 쿼리 — 해시 라우팅 전에 호출) ---------- */
+  function handlePaymentReturn() {
+    if (!location.search || location.search.indexOf('pay=') === -1) return;
+    var params = new URLSearchParams(location.search);
+    var mode = params.get('pay');
+    function cleanup() { // 쿼리 제거 후 수납 뷰로 (해시 변경이 뷰 렌더를 트리거)
+      try { history.replaceState(null, '', location.pathname); } catch (e) {}
+      location.hash = '#view-bills';
+    }
+    if (mode === 'success') {
+      var paymentKey = params.get('paymentKey');
+      var orderId = params.get('orderId');
+      var amount = parseInt(params.get('amount'), 10);
+      if (!paymentKey || !orderId || !isFinite(amount)) { cleanup(); return; }
+      postJSON('/api/payments/confirm', { paymentKey: paymentKey, orderId: orderId, amount: amount })
+        .then(function (res) {
+          if (res.ok) toast('결제가 완료되었습니다');
+          else toast(apiErrMsg(res, '결제 승인에 실패했습니다'), true);
+          cleanup();
+          loadDashboard(); // 진료비 패널 갱신
+        }).catch(function (err) {
+          console.warn('[patient] confirm 실패:', err.message);
+          toast('서버에 연결할 수 없습니다', true);
+          cleanup();
+        });
+    } else if (mode === 'fail') {
+      toast(params.get('message') || '결제에 실패했습니다', true);
+      cleanup();
+    }
   }
 
   function renderBillsView(host) {
@@ -960,10 +1018,17 @@
           tr.appendChild(stCell);
           var cell = document.createElement('td');
           if (!b.paid) {
-            var btn = el('button', 'vt-btn', '수납하기');
+            var btn = el('button', 'vt-btn', '결제하기');
             btn.type = 'button';
             btn.addEventListener('click', function () { payBill(b); });
             cell.appendChild(btn);
+          } else if (b.receiptUrl) { // 토스 승인 건 — 영수증 링크
+            var a = document.createElement('a');
+            a.href = b.receiptUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = '영수증';
+            cell.appendChild(a);
           } else {
             cell.textContent = '—';
           }
@@ -1191,6 +1256,7 @@
   }
 
   function init() {
+    handlePaymentReturn(); // 토스 결제 복귀 쿼리 처리 (해시 라우팅 시작 전)
     loadDashboard();
     setupDocRequests();
     setupApptModal();

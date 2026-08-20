@@ -19,3 +19,6 @@ node_modules/
 
 # DB credentials (never commit)
 db.config.json
+
+# 결제 키 (never commit)
+payments.config.json

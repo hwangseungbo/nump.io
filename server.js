@@ -33,6 +33,16 @@ function getPool() {
   return pool;
 }
 
+// ── 결제(토스페이먼츠) 설정 ─────────────────────────────────
+// 기본값은 토스 공식 문서의 공용 테스트 키(실결제 없음 — 커밋 가능).
+// 운영 키는 프로젝트 루트의 payments.config.json으로 덮어쓴다 (gitignore).
+let PAY_CONF = {
+  tossClientKey: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
+  tossSecretKey: 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R'
+};
+try { PAY_CONF = Object.assign(PAY_CONF, require('./payments.config.json')); }
+catch { /* 파일 없으면 공용 테스트 키 사용 */ }
+
 // ── 인증 헬퍼 ───────────────────────────────────────────────
 const SESSION_COOKIE = 'bn_session';
 const SESSION_DAYS = 7;
@@ -1087,31 +1097,85 @@ async function apiBillsGet(req, res) {
   if (!pid) return;
   const [unpaidR, rowR] = await Promise.all([
     db.query(`SELECT COALESCE(sum(amount), 0)::int AS s FROM bills WHERE patient_id=$1 AND NOT paid`, [pid]),
-    db.query(`SELECT id, billed_at, item, amount, paid FROM bills
+    db.query(`SELECT id, billed_at, item, amount, paid, receipt_url FROM bills
                WHERE patient_id=$1 ORDER BY billed_at DESC, id DESC LIMIT 20`, [pid])
   ]);
   sendJson(res, 200, {
     unpaid: unpaidR.rows[0].s,
-    rows: rowR.rows.map((x) => ({ id: x.id, date: fmtDate(x.billed_at), item: x.item, amount: x.amount, paid: x.paid }))
+    rows: rowR.rows.map((x) => ({ id: x.id, date: fmtDate(x.billed_at), item: x.item, amount: x.amount, paid: x.paid,
+      receiptUrl: x.receipt_url || '' })) // 토스: 승인 성공 건의 영수증 링크
   });
 }
 
-// §1-5 PATCH /api/bills/:id — patient 본인 미납 건만 수납 처리(데모)
-async function apiBillPatch(req, res, id) {
+// ── 토스페이먼츠 결제 (기존 데모 PATCH 수납을 대체) ─────────
+// 1단계 POST /api/bills/:id/checkout — 본인 미납 건에 orderId 발급 후 결제창 파라미터 반환
+async function apiBillCheckout(req, res, id) {
   const me = await requireRole(req, res, ['patient']);
   if (!me) return;
-  const body = await readJsonBody(req);
-  if (!body || body.paid !== true) return sendJson(res, 400, { error: '잘못된 요청' });
   const db = getPool();
   const p = await myPatientRow(db, me);
   if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
-  const r = await db.query(`SELECT id, patient_id, paid FROM bills WHERE id=$1`, [id]);
+  const r = await db.query(`SELECT id, patient_id, item, amount, paid FROM bills WHERE id=$1`, [id]);
   if (!r.rows.length) return sendJson(res, 404, { error: '청구 내역을 찾을 수 없습니다.' });
   const bill = r.rows[0];
   if (bill.patient_id !== p.id) return sendJson(res, 403, { error: 'forbidden' });
   if (bill.paid) return sendJson(res, 400, { error: '이미 수납된 내역입니다.' });
-  await db.query(`UPDATE bills SET paid=TRUE WHERE id=$1`, [id]);
-  sendJson(res, 200, { ok: true });
+  // orderId: 6~64자 영숫자·-_ 규칙 충족. 재시도 시 덮어써 마지막 checkout만 유효.
+  const orderId = 'bn' + bill.id + '-' + crypto.randomBytes(8).toString('hex');
+  await db.query(`UPDATE bills SET order_id=$1 WHERE id=$2`, [orderId, bill.id]);
+  sendJson(res, 200, {
+    ok: true, clientKey: PAY_CONF.tossClientKey, orderId,
+    amount: bill.amount, orderName: bill.item, customerName: me.name
+  });
+}
+
+// 2단계 POST /api/payments/confirm — 금액 검증 후 토스 승인 API 호출, 성공 시에만 paid 처리
+async function apiPaymentConfirm(req, res) {
+  const me = await requireRole(req, res, ['patient']);
+  if (!me) return;
+  const body = await readJsonBody(req);
+  if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
+  const paymentKey = String(body.paymentKey || '');
+  const orderId = String(body.orderId || '');
+  const amount = Number(body.amount);
+  if (!paymentKey || !orderId || !Number.isInteger(amount))
+    return sendJson(res, 400, { error: '잘못된 요청' });
+  const db = getPool();
+  const p = await myPatientRow(db, me);
+  if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
+  const r = await db.query(
+    `SELECT id, amount, paid FROM bills WHERE order_id=$1 AND patient_id=$2`, [orderId, p.id]);
+  if (!r.rows.length) return sendJson(res, 404, { error: '주문 정보를 찾을 수 없습니다.' });
+  const bill = r.rows[0];
+  if (bill.paid) return sendJson(res, 200, { ok: true, already: true }); // 중복 confirm 허용
+  if (amount !== bill.amount)
+    return sendJson(res, 400, { error: '결제 금액이 일치하지 않습니다.' }); // 토스 호출 전 검증
+  let tossRes, result;
+  try {
+    tossRes = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(PAY_CONF.tossSecretKey + ':').toString('base64'),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ paymentKey, orderId, amount }),
+      signal: AbortSignal.timeout(15000)
+    });
+    result = await tossRes.json();
+  } catch (e) {
+    console.error('[pay] 토스 승인 호출 실패:', e.message);
+    return sendJson(res, 502, { error: '결제 서버에 연결할 수 없습니다.' });
+  }
+  if (!tossRes.ok) {
+    // 승인 실패 — paid 변경 금지, 토스 메시지·코드 패스스루 (status는 400대로 클램프)
+    const st = tossRes.status >= 400 && tossRes.status < 500 ? tossRes.status : 400;
+    return sendJson(res, st, { error: (result && result.message) || '결제 승인에 실패했습니다.', code: (result && result.code) || null });
+  }
+  await db.query(
+    `UPDATE bills SET paid=TRUE, payment_key=$1, pay_method=$2, approved_at=$3, receipt_url=$4 WHERE id=$5`,
+    [paymentKey, result.method || null, result.approvedAt || null,
+     (result.receipt && result.receipt.url) || null, bill.id]);
+  sendJson(res, 200, { ok: true, method: result.method || '', receiptUrl: (result.receipt && result.receipt.url) || '' });
 }
 
 // §1-6 GET /api/documents?status=&page= — staff: 전체 / patient: 본인(patient 키 생략)
@@ -1938,16 +2002,26 @@ async function handle(req, res) {
   if (pathname === '/api/stats/nurse'  && req.method === 'GET')  return apiStatsNurse(req, res);
   if (pathname === '/api/handover'     && req.method === 'GET')  return apiHandover(req, res);
   if (pathname === '/api/me/password'  && req.method === 'POST') return apiMePassword(req, res);
-  // PATCH /api/{documents|appointments|admissions|bills}/:id — id는 양의 정수만
-  const pm = pathname.match(/^\/api\/(documents|appointments|admissions|bills)\/([^/]+)$/);
+  // 토스 결제: POST /api/bills/:id/checkout — 아래 PATCH 정규식보다 먼저 매칭
+  const cm = pathname.match(/^\/api\/bills\/(\d+)\/checkout$/);
+  if (cm) {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method Not Allowed' });
+    const billId = parseId(cm[1]);
+    if (!billId) return sendJson(res, 404, { error: 'not found' });
+    return apiBillCheckout(req, res, billId);
+  }
+  if (pathname === '/api/payments/confirm' && req.method === 'POST') return apiPaymentConfirm(req, res);
+
+  // PATCH /api/{documents|appointments|admissions}/:id — id는 양의 정수만
+  // (bills는 토스 결제 checkout/confirm으로 대체되어 데모 PATCH 수납 제거)
+  const pm = pathname.match(/^\/api\/(documents|appointments|admissions)\/([^/]+)$/);
   if (pm) {
     if (req.method !== 'PATCH') return sendJson(res, 405, { error: 'Method Not Allowed' });
     const id = parseId(pm[2]);
     if (!id) return sendJson(res, 404, { error: 'not found' });
     if (pm[1] === 'documents')    return apiDocumentPatch(req, res, id);
     if (pm[1] === 'appointments') return apiAppointmentPatch(req, res, id);
-    if (pm[1] === 'admissions')   return apiAdmissionPatch(req, res, id);
-    return apiBillPatch(req, res, id);
+    return apiAdmissionPatch(req, res, id);
   }
 
   // 역할 페이지 보호 (redirect 시 true 반환)
