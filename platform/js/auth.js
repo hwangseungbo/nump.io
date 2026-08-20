@@ -19,8 +19,17 @@
       return;
     }
     personalize(me);
+    applyAvatar(me);
     addLogout();
   }).catch(function () { /* 서버 미가동 시 데모 데이터 그대로 표시 */ });
+
+  // 역할·성별·연령대별 아바타 — 서버(apiMe)가 계산한 파일명을 적용, 없으면 기본 이미지 유지
+  function applyAvatar(me) {
+    if (!me.avatar) return;
+    document.querySelectorAll('img.ava').forEach(function (img) {
+      img.src = '../../assets/avatars/' + me.avatar;
+    });
+  }
 
   function displayName(me) {
     var p = me.profile || {};

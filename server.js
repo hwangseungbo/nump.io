@@ -114,10 +114,38 @@ async function apiLogout(req, res) {
   if (token) { try { await getPool().query('DELETE FROM sessions WHERE token=$1', [token]); } catch {} }
   sendJson(res, 200, { ok: true }, { 'Set-Cookie': `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0` });
 }
+// 역할·성별·연령대별 아바타 파일명 — assets/avatars/av-{role}-{m|f}-{연령대}.png
+// sex/birth_date 중 하나라도 없으면 null (기존 기본 이미지 유지).
+function avatarFor(role, sex, birthDate) {
+  if (!sex || !birthDate || !['patient', 'doctor', 'nurse'].includes(role)) return null;
+  const sx = sex === 'M' ? 'm' : sex === 'F' ? 'f' : null;
+  if (!sx) return null;
+  const d = birthDate instanceof Date ? birthDate : new Date(String(birthDate));
+  if (isNaN(d.getTime())) return null;
+  const age = calcAge(d);
+  if (age == null) return null;
+  let band = age < 10 ? 0 : Math.floor(age / 10) * 10;
+  const RANGE = { patient: [0, 80], doctor: [30, 60], nurse: [20, 50] }; // 파일 존재 범위로 클램프
+  const lo = RANGE[role][0], hi = RANGE[role][1];
+  band = Math.min(hi, Math.max(lo, band));
+  return `av-${role}-${sx}-${band === 0 ? '00' : String(band)}.png`;
+}
+
 async function apiMe(req, res) {
   const u = await currentUser(req);
   if (!u) return sendJson(res, 401, { error: '로그인이 필요합니다.' });
-  sendJson(res, 200, { id: u.id, username: u.username, name: u.name, role: u.role, profile: u.profile });
+  // 아바타: 환자는 patients 행, 직원은 profile의 sex/birth_date 기준. admin·정보 없음 → null.
+  let avatar = null;
+  try {
+    if (u.role === 'patient') {
+      const r = await getPool().query(`SELECT sex, birth_date FROM patients WHERE user_id=$1`, [u.id]);
+      if (r.rows.length) avatar = avatarFor('patient', r.rows[0].sex, r.rows[0].birth_date);
+    } else if (u.role === 'doctor' || u.role === 'nurse') {
+      const p = u.profile || {};
+      avatar = avatarFor(u.role, p.sex, p.birth_date);
+    }
+  } catch (e) { console.error('[avatar] 계산 실패:', e.message); }
+  sendJson(res, 200, { id: u.id, username: u.username, name: u.name, role: u.role, profile: u.profile, avatar });
 }
 // P6 회원가입 — 환자 전용. 이름+생년월일+휴대폰이 기존 미연결 환자와 정확히 1명
 // 일치하면 그 환자에 연결(기존 기록 승계), 아니면 신규 환자로 등록한다.
