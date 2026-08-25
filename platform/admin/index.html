@@ -39,19 +39,44 @@
   tr.p-detail .p-kv{ margin:2px 0; }
   tr.p-detail .p-sum{ white-space:pre-wrap; margin-top:8px; }
   .p-desc{ font-size:11px; color:var(--muted); margin:2px 0 10px; }
+  /* ── 탭 바 (밑줄형 — 기존 녹색 디자인 언어) ── */
+  .tabbar{ display:flex; gap:6px; margin-bottom:20px; border-bottom:1px solid var(--line-2); }
+  .tabbar .tab{ font-family:inherit; font-size:13.5px; font-weight:700; color:var(--muted); background:none;
+    border:none; padding:10px 14px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tabbar .tab:hover{ color:var(--accent-d); }
+  .tabbar .tab.on{ color:var(--accent-d); border-bottom-color:var(--accent); }
+  .tabpane > .pcard:first-child{ margin-top:0; }
+  /* ── 아바타 갤러리 ── */
+  .av-wrap{ overflow-x:auto; }
+  table.av-table{ border-collapse:collapse; }
+  .av-table th{ font-size:11.5px; color:var(--muted); font-weight:700; padding:6px 8px; text-align:center; white-space:nowrap; }
+  .av-table th.rowh{ text-align:left; padding-right:12px; }
+  .av-table td{ padding:6px 8px; text-align:center; }
+  .av-table img{ width:80px; height:80px; object-fit:contain; border-radius:14px; border:1px solid var(--line-2);
+    background:var(--page); display:block; transition:border-color .15s, box-shadow .15s; }
+  .av-table a:hover img{ border-color:var(--accent); box-shadow:0 4px 12px rgba(47,158,87,.18); }
 </style>
 </head>
 <body data-role="admin">
 <div class="admin-wrap">
   <div class="admin-head">
     <img src="../../assets/logo-mark.png" alt="" />
-    <h1>Basil Nexus 관리자 <span class="muted" style="font-weight:600;font-size:13px">· 계정 관리</span></h1>
+    <h1>Basil Nexus 관리자 <span class="muted" id="headSub" style="font-weight:600;font-size:13px">· 계정 관리</span></h1>
     <div class="right">
       <a class="btn-ghost" href="../../index.html">메인으로</a>
       <button class="btn-ghost" id="logoutBtn">로그아웃</button>
     </div>
   </div>
 
+  <!-- 탭 바: 계정 관리 / 페르소나 / 아바타 (활성 탭은 location.hash로 유지) -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab on" data-tab="accounts" type="button">계정 관리</button>
+    <button class="tab" data-tab="personas" type="button">페르소나</button>
+    <button class="tab" data-tab="avatars" type="button">아바타</button>
+  </nav>
+
+  <!-- 탭1: 계정 관리 (기존 .grid2 그대로 이동) -->
+  <div class="tabpane" id="tab-accounts">
   <div class="grid2">
     <div class="card">
       <div class="sec-t"><h2>계정 목록</h2><span class="muted" id="cnt"></span></div>
@@ -85,7 +110,10 @@
       </form>
     </div>
   </div>
+  </div><!-- /tab-accounts -->
 
+  <!-- 탭2: 페르소나 (기존 .pcard 2개 그대로 이동) -->
+  <div class="tabpane" id="tab-personas" style="display:none">
   <!-- P3: AI 페르소나 (관리자 전용 열람 — 요약·성향은 LLM 생성 텍스트라 반드시 esc 처리) -->
   <div class="card pcard">
     <div class="sec-t"><h2>AI 페르소나</h2><span class="muted" id="pcnt"></span></div>
@@ -105,6 +133,26 @@
       <tbody id="drows"><tr><td colspan="4" class="muted">불러오는 중…</td></tr></tbody>
     </table>
   </div>
+  </div><!-- /tab-personas -->
+
+  <!-- 탭3: 아바타 갤러리 (정적 파일명 규칙 — 표는 JS로 생성) -->
+  <div class="tabpane" id="tab-avatars" style="display:none">
+    <div class="card">
+      <div class="sec-t"><h2>환자 아바타</h2><span class="muted">18종</span></div>
+      <div class="p-desc">가입자의 역할·성별·연령대에 따라 자동 선택됩니다 · 유아~80대 (전 직종 합계 34종)</div>
+      <div class="av-wrap"><table class="av-table" id="avPatient"></table></div>
+    </div>
+    <div class="card pcard">
+      <div class="sec-t"><h2>의사 아바타</h2><span class="muted">8종</span></div>
+      <div class="p-desc">가입자의 역할·성별·연령대에 따라 자동 선택됩니다 · 30~60대 (범위 밖은 경계값으로 클램프)</div>
+      <div class="av-wrap"><table class="av-table" id="avDoctor"></table></div>
+    </div>
+    <div class="card pcard">
+      <div class="sec-t"><h2>간호사 아바타</h2><span class="muted">8종</span></div>
+      <div class="p-desc">가입자의 역할·성별·연령대에 따라 자동 선택됩니다 · 20~50대 (범위 밖은 경계값으로 클램프)</div>
+      <div class="av-wrap"><table class="av-table" id="avNurse"></table></div>
+    </div>
+  </div><!-- /tab-avatars -->
 </div>
 <script>
 (function(){
@@ -288,6 +336,58 @@
     confirmLogout(function(){
       fetch('/api/logout',{method:'POST'}).then(function(){ location.href='../login.html'; });
     });
+  });
+
+  // ── 탭 전환 — 활성 탭을 location.hash(#accounts/#personas/#avatars)에 반영, 새로고침 유지 ──
+  var TABS = { accounts: '계정 관리', personas: '페르소나', avatars: '아바타' };
+  var headSub = document.getElementById('headSub');
+  function currentTab(){
+    var h = (location.hash || '').replace(/^#/, '');
+    return TABS[h] ? h : 'accounts';
+  }
+  function showTab(name){
+    Object.keys(TABS).forEach(function(k){
+      var pane = document.getElementById('tab-' + k);
+      if (pane) pane.style.display = (k === name) ? '' : 'none';
+    });
+    var btns = document.querySelectorAll('#tabbar .tab');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].className = 'tab' + (btns[i].getAttribute('data-tab') === name ? ' on' : '');
+    }
+    if (headSub) headSub.textContent = '· ' + TABS[name]; // 헤더 부제를 활성 탭명으로
+  }
+  document.getElementById('tabbar').addEventListener('click', function(ev){
+    var b = ev.target;
+    while (b && b !== this && !(b.getAttribute && b.getAttribute('data-tab'))) b = b.parentNode;
+    if (!b || b === this) return;
+    location.hash = '#' + b.getAttribute('data-tab'); // hashchange가 showTab을 호출
+  });
+  window.addEventListener('hashchange', function(){ showTab(currentTab()); });
+  showTab(currentTab()); // 로드 시 hash 복원 (기본 #accounts)
+
+  // ── 아바타 갤러리 — 파일명 규칙(av-{role}-{m|f}-{band}.png) 순회 생성, 정적 문자열이라 fetch 불필요 ──
+  var AV_BASE = '../../assets/avatars/';
+  var AV_SETS = [
+    { el: 'avPatient', role: 'patient', bands: ['00','10','20','30','40','50','60','70','80'] },
+    { el: 'avDoctor',  role: 'doctor',  bands: ['30','40','50','60'] },
+    { el: 'avNurse',   role: 'nurse',   bands: ['20','30','40','50'] }
+  ];
+  function bandLabel(b){ return b === '00' ? '유아' : (Number(b) + '대'); }
+  AV_SETS.forEach(function(s){
+    var t = document.getElementById(s.el);
+    if (!t) return;
+    var head = '<tr><th class="rowh"></th>' + s.bands.map(function(b){
+      return '<th>' + bandLabel(b) + '</th>';
+    }).join('') + '</tr>';
+    var body = [['m','남'],['f','여']].map(function(g){
+      return '<tr><th class="rowh">' + g[1] + '</th>' + s.bands.map(function(b){
+        var f = 'av-' + s.role + '-' + g[0] + '-' + b + '.png';
+        var src = AV_BASE + f;
+        return '<td><a href="' + src + '" target="_blank" rel="noopener" title="' + f + '">'
+          + '<img src="' + src + '" loading="lazy" alt="' + f + '" title="' + f + '"></a></td>';
+      }).join('') + '</tr>';
+    }).join('');
+    t.innerHTML = head + body;
   });
 
   load();
