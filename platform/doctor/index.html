@@ -263,9 +263,9 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
       <div class="summary-foot"><button class="btn-ghost" id="aiSumBtn" type="button">AI 요약 생성</button></div>
     </div>
 
-    <!-- 수가 청구 자동 작성 -->
-    <div class="card">
-      <div class="sec-t"><h2>수가 청구 자동 작성</h2><a class="link" href="#">더 보기 <span class="arr">›</span></a></div>
+    <!-- E⑮. 진료비 청구 현황 — 최근 조회 환자의 실데이터(/api/bills)로 채움 (실패 시 정적 유지) -->
+    <div class="card" id="claimCard">
+      <div class="sec-t"><h2>진료비 청구 현황</h2><a class="link" href="#view-billing">더 보기 <span class="arr">›</span></a></div>
       <div class="claim-t">골다공증 평가 청구서 <span class="muted" style="font-weight:600">(초안)</span></div>
       <div class="claim-row"><span class="cl-n">DEXA 검사 (요추+대퇴)</span><span class="cl-code">E7001</span><span class="cl-p">₩85,950</span></div>
       <div class="claim-row"><span class="cl-n">골다공증 치료 상담료</span><span class="cl-code">A2101</span><span class="cl-p">₩18,150</span></div>
@@ -307,6 +307,6 @@ button.btn-ghost{ font-family:inherit; cursor:pointer; }
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="../js/auth.js?v=5"></script>
 <script src="../js/ai.js?v=13"></script>
-<script src="../js/doctor.js?v=9"></script>
+<script src="../js/doctor.js?v=10"></script>
 </body>
 </html>

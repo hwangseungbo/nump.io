@@ -162,6 +162,7 @@
     if (vs[2]) vs[2].textContent = p.lastVisit || '-';
     if (vs[3]) vs[3].textContent = p.memo || '-';
     currentPatient = p;
+    renderClaimCard(p); // E⑮. 청구 카드도 이 환자 실데이터로
   }
 
   // SageFM 카드 정적 불릿 → 안내 문구 (데이터 로드 성공 시에만)
@@ -243,6 +244,38 @@
     } catch (e) {
       console.warn('환자 검색 실패 — 기존 표시 유지:', e);
     }
+  }
+
+  /* ---------- E⑮. 진료비 청구 카드 — 최근 조회 환자의 실데이터로 교체 ---------- */
+  function renderClaimCard(p) {
+    var card = document.getElementById('claimCard');
+    if (!card || !p || !p.id) return;
+    getJson('/api/bills?patient_id=' + p.id).then(function (d) {
+      var rows = (d && d.rows) || [];
+      card.querySelectorAll('.claim-t, .claim-row, .claim-total, .claim-btns, .empty').forEach(function (n) { n.remove(); });
+      card.appendChild(h('div', 'claim-t', (p.name || '') + ' 님 진료비'));
+      var unpaid = rows.filter(function (b) { return b.paid === false; });
+      var show = (unpaid.length ? unpaid : rows).slice(0, 3);
+      if (!show.length) { card.appendChild(h('div', 'empty', '청구 내역이 없습니다')); return; }
+      show.forEach(function (b) {
+        var row = h('div', 'claim-row');
+        row.appendChild(h('span', 'cl-n', b.item || ''));
+        row.appendChild(h('span', 'cl-code', b.date || ''));
+        row.appendChild(h('span', 'cl-p', '₩' + Number(b.amount || 0).toLocaleString()));
+        card.appendChild(row);
+      });
+      var sum = (unpaid.length ? unpaid : show).reduce(function (s2, b) { return s2 + (b.amount || 0); }, 0);
+      var tot = h('div', 'claim-total');
+      tot.appendChild(h('span', 'ct-n', unpaid.length ? '미납 합계' : '최근 청구 합계'));
+      tot.appendChild(h('span', 'ct-v', '₩' + sum.toLocaleString()));
+      card.appendChild(tot);
+      var btns = h('div', 'claim-btns');
+      var b1 = h('a', 'b1', '환자 EMR 보기');
+      b1.href = '#view-search';
+      b1.addEventListener('click', function (e) { e.preventDefault(); gotoEmr(p.id); });
+      btns.appendChild(b1);
+      card.appendChild(btns);
+    }).catch(function () { /* 실패 시 기존 정적 표시 유지 */ });
   }
 
   /* ---------- M1: 이상 검사치 카드 (최근 7일 H/L — 통계 카드 위) ---------- */
@@ -355,14 +388,18 @@
       console.warn('시스템 상태 수신 실패 — 정적 표시 유지:', e);
     });
 
-    // 레일 검색: Enter 시 조회
+    // E⑭. 레일 검색 — 간호사와 동일하게 bn.searchQ 저장 후 환자 검색 뷰로 이동
     var search = document.getElementById('patientSearch');
     if (search) {
       search.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
         var q = search.value.trim();
-        if (q) searchPatient(q);
+        if (!q) return;
+        try { sessionStorage.setItem('bn.searchQ', q); } catch (e2) {}
+        search.value = '';
+        if (location.hash === '#view-search') window.dispatchEvent(new Event('hashchange'));
+        else location.hash = '#view-search';
       });
     }
 
@@ -692,6 +729,27 @@
     head.appendChild(hd);
     card.appendChild(head);
 
+    // A. 알레르기 — 안전 정보라 최상단 배지 (필드 부재(컬럼 미적용/구서버)면 표시 생략)
+    if (p.allergies !== undefined) {
+      var alWrap = h('div', null);
+      alWrap.style.cssText = 'margin:2px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;';
+      if (Array.isArray(p.allergies) && p.allergies.length) {
+        var alLab = h('span', null, '알레르기');
+        alLab.style.cssText = 'font-size:11.5px;font-weight:800;color:#c0392b;';
+        alWrap.appendChild(alLab);
+        p.allergies.forEach(function (a) {
+          var ab = h('span', null, a); // textContent — 사용자 입력 텍스트 (stored-XSS 방지)
+          ab.style.cssText = 'font-size:11px;font-weight:700;color:#c0392b;background:#fdeaea;border:1px solid #f5c2c2;border-radius:999px;padding:3px 10px;';
+          alWrap.appendChild(ab);
+        });
+      } else {
+        var alNone = h('span', null, '알레르기 정보 없음 — 확인 필요');
+        alNone.style.cssText = 'font-size:11px;font-weight:600;color:var(--muted);background:var(--page);border:1px solid var(--line-2);border-radius:999px;padding:3px 10px;';
+        alWrap.appendChild(alNone);
+      }
+      card.appendChild(alWrap);
+    }
+
     var emr = p.emr || {};
 
     card.appendChild(h('div', 'sub-t', '진단'));
@@ -756,6 +814,147 @@
       card.appendChild(tl.wrap);
     } else card.appendChild(emptyBox('검사 결과가 없습니다'));
 
+    // C. 진료별 환자용 요약 — 환자 화면에 그대로 표시 (note 원문은 계속 비노출)
+    if (emr.encounters && emr.encounters.length && emr.encounters[0].summary !== undefined) {
+      card.appendChild(h('div', 'sub-t', '환자용 방문 요약'));
+      var seDesc = h('div', 'muted', '환자 홈·진료 기록 화면에 그대로 표시됩니다. 예: 오늘 확인한 것 / 진단 / 다음 할 일 3줄.');
+      seDesc.style.cssText = 'font-size:11.5px;margin:-4px 0 8px;';
+      card.appendChild(seDesc);
+      emr.encounters.forEach(function (e2) {
+        var seRow = h('div', null);
+        seRow.style.cssText = 'margin-bottom:10px;';
+        var seLab = h('div', null, e2.date + ' · ' + (e2.department || '') + (e2.cc ? ' — ' + e2.cc : ''));
+        seLab.style.cssText = 'font-size:12px;font-weight:700;margin-bottom:4px;';
+        seRow.appendChild(seLab);
+        var seWrap = h('div', null);
+        seWrap.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+        var seTa = document.createElement('textarea');
+        seTa.value = e2.summary || '';
+        seTa.rows = 2;
+        seTa.maxLength = 1000;
+        seTa.placeholder = '환자가 읽을 요약을 입력하세요';
+        seTa.style.cssText = 'flex:1;font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;resize:vertical;';
+        var seBtn = h('button', 'btn-cta', '저장'); seBtn.type = 'button';
+        seBtn.addEventListener('click', function () {
+          seBtn.disabled = true;
+          fetch('/api/encounters/' + e2.id, { method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patient_summary: seTa.value })
+          }).then(function (r) {
+            seBtn.disabled = false;
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            toast('환자용 요약을 저장했습니다');
+          }).catch(function () { seBtn.disabled = false; toast('저장에 실패했습니다'); });
+        });
+        seWrap.appendChild(seTa); seWrap.appendChild(seBtn);
+        seRow.appendChild(seWrap);
+        card.appendChild(seRow);
+      });
+    }
+
+    // B. 지시(오더) — 이 환자에게 간호 지시 작성 + 목록 (지시→확인→수행 3단계)
+    card.appendChild(h('div', 'sub-t', '지시 (오더)'));
+    var odForm = h('div', null);
+    odForm.style.cssText = 'display:flex;gap:8px;margin-bottom:10px;';
+    var odInp = document.createElement('input');
+    odInp.type = 'text';
+    odInp.maxLength = 500;
+    odInp.placeholder = '간호 지시 입력 (예: 6시간마다 혈압 측정 후 보고)';
+    odInp.style.cssText = 'flex:1;font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;outline:none;';
+    var odBtn = h('button', 'btn-cta', '지시 등록'); odBtn.type = 'button';
+    odForm.appendChild(odInp); odForm.appendChild(odBtn);
+    card.appendChild(odForm);
+    var odWrap = h('div', null);
+    card.appendChild(odWrap);
+    var OD_ST = { open: ['wait', '대기'], acked: ['now', '확인됨'], done: ['done', '수행 완료'], cancelled: ['cxl', '취소'] };
+    function loadOrders() {
+      odWrap.innerHTML = '';
+      getJson('/api/care-orders?patient_id=' + p.id).then(function (d) {
+        var rows = (d && d.rows) || [];
+        if (!rows.length) { odWrap.appendChild(h('div', 'empty', '등록된 지시가 없습니다')); return; }
+        var t = makeTable(['지시 내용', '상태', '등록', '처리', '']);
+        rows.forEach(function (o) {
+          var st = OD_ST[o.status] || OD_ST.open;
+          var proc = o.status === 'done' ? (o.doneAt + ' · ' + o.doneBy)
+            : o.status === 'acked' ? (o.ackedAt + ' · ' + o.ackedBy) : '-';
+          var act = h('span', null, '');
+          if (o.mine && (o.status === 'open' || o.status === 'acked')) {
+            var cxl = ghostBtn('취소');
+            cxl.addEventListener('click', function () {
+              if (!window.confirm('이 지시를 취소하시겠습니까?')) return;
+              cxl.disabled = true;
+              fetch('/api/care-orders/' + o.id, { method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' })
+              }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); toast('지시를 취소했습니다'); loadOrders(); })
+                .catch(function () { toast('취소에 실패했습니다'); cxl.disabled = false; });
+            });
+            act = cxl;
+          }
+          t.tbody.appendChild(trow([o.content, stBadge(st[0], st[1]),
+            o.createdAt + ' · ' + o.author + (o.authorRole === 'nurse' ? ' 간호사' : ' 의사'), proc, act]));
+        });
+        odWrap.appendChild(t.wrap);
+      }).catch(function () { odWrap.appendChild(emptyBox('지시를 불러올 수 없습니다')); });
+    }
+    odBtn.addEventListener('click', function () {
+      var content = odInp.value.trim();
+      if (!content) { toast('지시 내용을 입력하세요'); return; }
+      odBtn.disabled = true;
+      fetch('/api/care-orders', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_id: p.id, content: content })
+      }).then(function (r) {
+        odBtn.disabled = false;
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        odInp.value = '';
+        toast('지시가 등록되었습니다');
+        loadOrders();
+      }).catch(function () { odBtn.disabled = false; toast('지시 등록에 실패했습니다'); });
+    });
+    loadOrders();
+
+    // D. 재진 제안 — 이 환자에게 proposed 예약 생성 (환자가 확정/거절)
+    card.appendChild(h('div', 'sub-t', '재진 제안'));
+    var rpWrap = h('div', null);
+    rpWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;';
+    var rpDate = document.createElement('input');
+    rpDate.type = 'date';
+    rpDate.style.cssText = 'font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;';
+    var rpTime = document.createElement('select');
+    rpTime.style.cssText = rpDate.style.cssText;
+    for (var rh = 9; rh <= 17; rh++) for (var rm = 0; rm < 60; rm += 30) {
+      var rt = (rh < 10 ? '0' : '') + rh + ':' + (rm < 10 ? '0' : '') + rm;
+      var ro = document.createElement('option'); ro.value = rt; ro.textContent = rt;
+      rpTime.appendChild(ro);
+    }
+    var rpMemo = document.createElement('input');
+    rpMemo.type = 'text';
+    rpMemo.maxLength = 200;
+    rpMemo.placeholder = '메모 (예: 검사 결과 확인차 재진 권장)';
+    rpMemo.style.cssText = 'flex:1;min-width:200px;font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;';
+    var rpBtn = h('button', 'btn-cta', '재진 제안'); rpBtn.type = 'button';
+    rpWrap.appendChild(rpDate); rpWrap.appendChild(rpTime); rpWrap.appendChild(rpMemo); rpWrap.appendChild(rpBtn);
+    card.appendChild(rpWrap);
+    var rpDesc = h('div', 'muted', '환자 예약 화면에 "제안된 예약"으로 표시되며, 환자가 확정하면 예약으로 접수됩니다.');
+    rpDesc.style.cssText = 'font-size:11.5px;margin-bottom:14px;';
+    card.appendChild(rpDesc);
+    rpBtn.addEventListener('click', function () {
+      if (!rpDate.value) { toast('제안할 날짜를 선택하세요'); return; }
+      rpBtn.disabled = true;
+      fetch('/api/appointments', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_id: p.id, date: rpDate.value, time: rpTime.value, kind: '진료',
+                               reason: rpMemo.value.trim() })
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, body: j }; });
+      }).then(function (res) {
+        rpBtn.disabled = false;
+        if (!res.ok) { toast((res.body && res.body.error) || '제안에 실패했습니다'); return; }
+        rpMemo.value = '';
+        toast('재진을 제안했습니다 — 환자 확정 대기');
+      }).catch(function () { rpBtn.disabled = false; toast('서버에 연결할 수 없습니다'); });
+    });
+
     aiSection(card, 'SageFM AI 요약', 'AI 요약 생성', function () {
       var prompt = '다음 환자의 EMR 데이터를 근거로 주치의용 요약을 한국어 불릿 4~5개로 작성. 수치 변화와 다음 진료 권고 포함.';
       return prompt + '\n' + JSON.stringify(emr, null, 2);
@@ -797,10 +996,33 @@
         var rows = (d && d.rows) || [];
         if (!rows.length) { listWrap.appendChild(h('div', 'empty', '해당 날짜의 예약이 없습니다')); return; }
         // P3b: 진단 컬럼 + 행 클릭 → 환자 EMR (patientId 없으면(구서버) 기존 표만)
-        var t = makeTable(['시간', '환자', '진단', '구분', '상태']);
+        // C. 사유 컬럼 — reason 필드가 있을 때만
+        var hasReason = rows.length && rows[0].reason !== undefined;
+        var t = makeTable(hasReason ? ['시간', '환자', '진단', '구분', '사유', '상태', ''] : ['시간', '환자', '진단', '구분', '상태', '']);
         rows.forEach(function (a) {
-          var row = trow([bcell(a.time), nmLabel(a), a.dx || '-', a.kind,
-            stBadge(stCls[a.status] || 'wait', a.statusLabel || a.status)]);
+          var cells = [bcell(a.time), nmLabel(a), a.dx || '-', a.kind];
+          if (hasReason) cells.push(a.reason || '-');
+          cells.push(stBadge(stCls[a.status] || 'wait', a.statusLabel || a.status));
+          // E⑬. [완료] — 기존 PATCH status='done' 재사용 (행 클릭스루와 분리: stopPropagation)
+          var doneAct = h('span', null, '');
+          if (a.status === 'scheduled') {
+            var doneBtn = ghostBtn('완료');
+            doneBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (!window.confirm(a.time + ' ' + (a.name || '') + ' 예약을 완료 처리하시겠습니까?')) return;
+              doneBtn.disabled = true;
+              fetch('/api/appointments/' + a.id, { method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'done' })
+              }).then(function (r2) {
+                if (!r2.ok) throw new Error('HTTP ' + r2.status);
+                toast('완료 처리되었습니다');
+                load();
+              }).catch(function () { toast('처리에 실패했습니다'); doneBtn.disabled = false; });
+            });
+            doneAct = doneBtn;
+          }
+          cells.push(doneAct);
+          var row = trow(cells);
           if (a.patientId != null) {
             row.className = 'click';
             row.title = '클릭하면 환자 EMR 상세로 이동합니다';

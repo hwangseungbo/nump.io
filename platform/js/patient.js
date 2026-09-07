@@ -89,6 +89,44 @@
     }
   }
 
+  /* ---------- C. 진료 상세(환자용) 모달 — note 원문 대신 의료진 작성 요약만 표시 ---------- */
+  function openEncDetail(r) {
+    var overlay = el('div', 'bn-overlay open');
+    var modal = el('div', 'bn-modal');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-label', '진료 상세');
+    modal.appendChild(el('h3', null, '진료 상세'));
+    function kv(k, v) {
+      var d = el('div', null);
+      d.style.cssText = 'font-size:13px;margin:6px 0;';
+      d.appendChild(el('span', 'muted', k + ' · '));
+      d.appendChild(document.createTextNode(v || '-')); // 전부 textContent
+      modal.appendChild(d);
+    }
+    kv('날짜', r.date);
+    kv('진료과', r.department);
+    kv('담당의', r.doctor);
+    kv('진단', r.dx);
+    var st = el('div', null, '의료진 요약');
+    st.style.cssText = 'font-size:12px;font-weight:700;margin:12px 0 6px;';
+    modal.appendChild(st);
+    var has = typeof r.summary === 'string' && r.summary.trim();
+    var sum = el('div', null, has ? r.summary : '요약이 아직 등록되지 않았습니다. 궁금한 점은 진료 시 문의해 주세요.');
+    sum.style.cssText = 'font-size:13px;white-space:pre-wrap;background:var(--page,#f6f9f6);border-radius:10px;padding:12px;'
+      + (has ? '' : 'color:var(--muted,#888);');
+    modal.appendChild(sum);
+    var btns = el('div', 'bn-modal-btns');
+    var ok = el('button', 'bn-btn-primary', '닫기');
+    ok.type = 'button';
+    btns.appendChild(ok);
+    modal.appendChild(btns);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    function close() { overlay.remove(); }
+    ok.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+  }
+
   /* ---------- 최근 진료 기록 ---------- */
   function renderEncounters(rows) {
     var card = $('#bnRecCard');
@@ -107,6 +145,7 @@
       body.appendChild(el('div', 'rec-dr', r.doctor || ''));
       var btn = el('button', 'btn-ghost', '상세 보기');
       btn.type = 'button';
+      btn.addEventListener('click', function () { openEncDetail(r); }); // C. 요약+진료정보 모달
       row.appendChild(ic); row.appendChild(body); row.appendChild(btn);
       card.appendChild(row);
     });
@@ -138,6 +177,28 @@
     order.forEach(function (v, i) {
       if (vals[i] && v != null) vals[i].textContent = v;
     });
+    // A. 알레르기 조회 전용 표시 — 의료진이 기록, 환자는 확인만 (필드 부재 시 생략)
+    if (p.allergies !== undefined) {
+      var row = $('#bnAllergyRow');
+      if (!row) {
+        row = el('div', 'kv');
+        row.id = 'bnAllergyRow';
+        row.appendChild(el('span', 'k', '알레르기'));
+        row.appendChild(el('span', 'v', ''));
+        card.appendChild(row);
+        var note = el('div', 'muted', '정보가 다르면 병원에 알려주세요');
+        note.style.cssText = 'font-size:11px;margin-top:4px;';
+        card.appendChild(note);
+      }
+      var v2 = $('.v', row);
+      if (Array.isArray(p.allergies) && p.allergies.length) {
+        v2.textContent = p.allergies.join(', ');
+        v2.style.cssText = 'color:#c0392b;font-weight:700;';
+      } else {
+        v2.textContent = '등록된 정보 없음';
+        v2.style.cssText = '';
+      }
+    }
   }
 
   /* ---------- 진료비 내역 ---------- */
@@ -292,7 +353,9 @@
     var modal = el('div', 'bn-modal');
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-label', '진료 예약 신청');
-    modal.appendChild(el('h3', null, '진료 예약 신청'));
+    var mTitle = el('h3', null, '진료 예약 신청');
+    modal.appendChild(mTitle);
+    var editing = null; // D. 예약 변경 모드 — open(appt)로 진입
 
     var lbDate = el('label', null, '날짜');
     var inDate = document.createElement('input');
@@ -354,6 +417,16 @@
     modal.appendChild(lbKind);
     modal.appendChild(selKind);
 
+    // C. 방문 사유(선택) — 의사·간호사 일정 화면과 인계에 표시됨
+    var lbReason = el('label', null, '방문 사유 (선택)');
+    var inReason = document.createElement('input');
+    inReason.type = 'text';
+    inReason.id = 'bnApReason';
+    inReason.maxLength = 200;
+    inReason.placeholder = '예) 기침이 2주째 계속돼요';
+    modal.appendChild(lbReason);
+    modal.appendChild(inReason);
+
     var errBox = el('div', 'bn-modal-err');
     errBox.hidden = true;
     modal.appendChild(errBox);
@@ -393,28 +466,25 @@
 
       var payload = { date: date, time: time, kind: kind };
       if (selDept.value) payload.department = selDept.value;
+      if (inReason.value.trim()) payload.reason = inReason.value.trim(); // C. 방문 사유
       submit.disabled = true;
-      fetch('/api/appointments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (j) {
-          return { ok: r.ok, status: r.status, body: j };
-        });
-      }).then(function (res) {
+      // D. 변경 모드면 PATCH /api/appointments/:id, 아니면 신규 POST
+      (editing ? patchJSON('/api/appointments/' + editing.id, payload)
+               : postJSON('/api/appointments', payload)
+      ).then(function (res) {
         submit.disabled = false;
         if (!res.ok) {
-          console.warn('[patient] POST /api/appointments ' + res.status);
+          console.warn('[patient] ' + (editing ? 'PATCH' : 'POST') + ' /api/appointments ' + res.status);
           if (res.body && res.body.error) showErr(res.body.error);
           else if (res.status === 400) showErr('과거 날짜이거나 입력 형식이 올바르지 않습니다.');
           else if (res.status === 401) showErr('로그인이 필요합니다.');
-          else showErr('서버 오류로 예약을 신청하지 못했습니다 (' + res.status + ')');
+          else showErr('서버 오류로 처리하지 못했습니다 (' + res.status + ')');
           return;
         }
         close();
+        if (editing) toast('예약이 변경되었습니다');
         // P2: 배정된 의사 안내 — 서버 응답의 진료과·의사명(DB 유래)은 toast가 textContent로 렌더
-        if (res.body && res.body.doctorName)
+        else if (res.body && res.body.doctorName)
           toast((res.body.department ? res.body.department + ' ' : '') + res.body.doctorName + ' 원장님으로 접수되었습니다');
         else toast('예약이 신청되었습니다');
         loadDashboard(); // 일정 패널 갱신
@@ -427,9 +497,21 @@
     });
 
     return {
-      open: function () {
+      open: function (appt) { // D. appt가 있으면 변경 모드 (현재 값 프리필)
         clearErr();
+        editing = appt || null;
+        mTitle.textContent = editing ? '예약 변경' : '진료 예약 신청';
+        submit.textContent = editing ? '변경' : '신청';
         inDate.min = tomorrowStr();
+        if (editing) {
+          if (editing.dateISO) inDate.value = editing.dateISO;
+          if (editing.time) selTime.value = editing.time;
+          if (editing.kind) selKind.value = editing.kind;
+          if (editing.department) selDept.value = editing.department; // 목록에 없으면 무시됨
+          inReason.value = editing.reason || '';
+        } else {
+          inReason.value = '';
+        }
         if (!inDate.value || inDate.value < inDate.min) inDate.value = inDate.min;
         overlay.classList.add('open');
         inDate.focus();
@@ -620,6 +702,50 @@
     fetchJSON('/api/appointments?scope=self').then(function (d) {
       body.textContent = '';
 
+      // D. 의사 재진 제안 — 확정(scheduled)/거절(cancelled)
+      if (Array.isArray(d.proposed) && d.proposed.length) {
+        var cardP = el('div', 'card v-card');
+        cardP.appendChild(el('div', 'vs-t', '제안된 예약'));
+        var pDesc = el('div', 'muted', '담당 의사가 제안한 재진 일정입니다. 확정하면 예약이 접수됩니다.');
+        pDesc.style.cssText = 'font-size:11.5px;margin:-4px 0 8px;';
+        cardP.appendChild(pDesc);
+        var tP = makeTable(['날짜', '시간', '진료과', '담당의', '메모', '']);
+        d.proposed.forEach(function (a) {
+          var trp = document.createElement('tr');
+          trp.appendChild(td(a.date));
+          trp.appendChild(td(a.time));
+          trp.appendChild(td(a.department));
+          trp.appendChild(td(a.doctor));
+          trp.appendChild(td(a.reason || '-'));
+          var actP = document.createElement('td');
+          function decide(status, msg) {
+            patchJSON('/api/appointments/' + a.id, { status: status }).then(function (res) {
+              if (!res.ok) { toast(apiErrMsg(res, '처리에 실패했습니다'), true); return; }
+              toast(msg);
+              loadDashboard();
+              refreshActiveView();
+            }).catch(function () { toast('서버에 연결할 수 없습니다', true); });
+          }
+          var okB = el('button', 'vt-btn', '확정');
+          okB.type = 'button';
+          okB.addEventListener('click', function () {
+            if (window.confirm(a.date + ' ' + a.time + ' 예약을 확정하시겠습니까?')) decide('scheduled', '예약이 확정되었습니다');
+          });
+          var noB = el('button', 'vt-btn warn-ghost', '거절');
+          noB.type = 'button';
+          noB.style.marginLeft = '6px';
+          noB.addEventListener('click', function () {
+            if (window.confirm('이 제안을 거절하시겠습니까?')) decide('cancelled', '제안을 거절했습니다');
+          });
+          actP.appendChild(okB);
+          actP.appendChild(noB);
+          trp.appendChild(actP);
+          tP.tbody.appendChild(trp);
+        });
+        cardP.appendChild(tP.wrap);
+        body.appendChild(cardP);
+      }
+
       var card1 = el('div', 'card v-card');
       card1.appendChild(el('div', 'vs-t', '다가오는 예약'));
       var up = Array.isArray(d.upcoming) ? d.upcoming : [];
@@ -655,6 +781,15 @@
           tr.appendChild(td(a.doctor));
           var cell = document.createElement('td');
           if (a.cancellable) {
+            // D. 예약 변경 — 기존 모달을 현재 값으로 프리필해 PATCH
+            var eb = el('button', 'vt-btn', '변경');
+            eb.type = 'button';
+            eb.style.marginRight = '6px';
+            eb.addEventListener('click', function () {
+              if (!apptModal) apptModal = buildApptModal();
+              apptModal.open(a);
+            });
+            cell.appendChild(eb);
             // M2: 채움 빨강 → 테두리형(warn-ghost)으로 시각 무게 완화 (확인 모달 로직 유지)
             var b = el('button', 'vt-btn warn-ghost', '예약 취소');
             b.type = 'button';
@@ -714,13 +849,16 @@
         }
         return;
       }
-      var t = makeTable(['날짜', '진료과', '진단', '담당의']);
+      // C. 요약 컬럼 — summary 필드가 있을 때만 (구서버/컬럼 미적용 폴백)
+      var hasSum = rows.length && rows[0].summary !== undefined;
+      var t = makeTable(hasSum ? ['날짜', '진료과', '진단', '담당의', '요약'] : ['날짜', '진료과', '진단', '담당의']);
       rows.forEach(function (r) {
         var tr = document.createElement('tr');
         tr.appendChild(td((r.date || '') + (r.time ? ' ' + r.time : '')));
         tr.appendChild(td(r.department));
         tr.appendChild(td(r.dx));
         tr.appendChild(td(r.doctor));
+        if (hasSum) tr.appendChild(td(r.summary || '-'));
         t.tbody.appendChild(tr);
       });
       card.appendChild(t.wrap);
@@ -922,6 +1060,39 @@
 
   /* ---------- 뷰: 수납 / 결제 내역 (bills) ---------- */
   /* ---------- 토스페이먼츠 결제창 v2 (기존 데모 PATCH 수납 대체) ---------- */
+  function launchToss(d) { // checkout 응답으로 결제창 호출 (단건·합산 공용)
+    var payment = TossPayments(d.clientKey).payment({ customerKey: TossPayments.ANONYMOUS });
+    var base = location.origin + location.pathname; // 토스가 ?pay=…에 &로 파라미터를 이어붙임
+    return payment.requestPayment({
+      method: 'CARD',
+      amount: { currency: 'KRW', value: d.amount },
+      orderId: d.orderId,
+      orderName: d.orderName || '진료비',
+      successUrl: base + '?pay=success',
+      failUrl: base + '?pay=fail',
+      customerName: d.customerName || '',
+      card: { useEscrow: false, flowMode: 'DEFAULT', useCardPoint: false, useAppCardOnly: false }
+    }).catch(function () { // 사용자가 결제창을 닫으면 reject됨
+      toast('결제가 취소되었습니다');
+    });
+  }
+
+  // E⑨. 미납 전체 합산 결제 — 서버가 합산 금액 재검증 후 일괄 paid 처리
+  function payAllBills(total, count) {
+    if (typeof TossPayments === 'undefined') {
+      toast('결제 모듈을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.', true);
+      return;
+    }
+    if (!window.confirm('미납 ' + count + '건, 총 ' + won(total) + '을(를) 한 번에 결제하시겠습니까?\n테스트 결제 환경으로, 실제 청구되지 않습니다.')) return;
+    postJSON('/api/bills/checkout-all', {}).then(function (res) {
+      if (!res.ok) { toast(apiErrMsg(res, '결제를 시작할 수 없습니다'), true); return; }
+      return launchToss(res.body);
+    }).catch(function (err) {
+      console.warn('[patient] checkout-all 실패:', err.message);
+      toast('서버에 연결할 수 없습니다', true);
+    });
+  }
+
   function payBill(b) {
     if (typeof TossPayments === 'undefined') { // SDK 미로드 (오프라인 등)
       toast('결제 모듈을 불러올 수 없습니다. 인터넷 연결을 확인해주세요.', true);
@@ -935,21 +1106,7 @@
         toast(apiErrMsg(res, '결제를 시작할 수 없습니다'), true);
         return;
       }
-      var d = res.body;
-      var payment = TossPayments(d.clientKey).payment({ customerKey: TossPayments.ANONYMOUS });
-      var base = location.origin + location.pathname; // 토스가 ?pay=…에 &로 파라미터를 이어붙임
-      return payment.requestPayment({
-        method: 'CARD',
-        amount: { currency: 'KRW', value: d.amount },
-        orderId: d.orderId,
-        orderName: d.orderName || '진료비',
-        successUrl: base + '?pay=success',
-        failUrl: base + '?pay=fail',
-        customerName: d.customerName || '',
-        card: { useEscrow: false, flowMode: 'DEFAULT', useCardPoint: false, useAppCardOnly: false }
-      }).catch(function () { // 사용자가 결제창을 닫으면 reject됨
-        toast('결제가 취소되었습니다');
-      });
+      return launchToss(res.body);
     }).catch(function (err) {
       console.warn('[patient] checkout 실패:', err.message);
       toast('서버에 연결할 수 없습니다', true);
@@ -1004,6 +1161,17 @@
 
       var card = el('div', 'card v-card');
       var rows = Array.isArray(d.rows) ? d.rows : [];
+      // E⑨. 미납 2건 이상이면 합산 결제 버튼
+      var unpaidRows = rows.filter(function (b) { return b.paid === false; });
+      if (unpaidRows.length >= 2 && d.unpaid > 0) {
+        var allBar = el('div', null);
+        allBar.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:10px;';
+        var allBtn = el('button', 'vt-btn', '미납 전체 결제 (' + unpaidRows.length + '건 · ' + won(d.unpaid) + ')');
+        allBtn.type = 'button';
+        allBtn.addEventListener('click', function () { payAllBills(d.unpaid, unpaidRows.length); });
+        allBar.appendChild(allBtn);
+        card.appendChild(allBar);
+      }
       if (!rows.length) {
         card.appendChild(emptyBox('수납 내역이 없습니다'));
       } else {
@@ -1255,12 +1423,110 @@
     });
   }
 
+  /* ---------- E⑦. 연락처·주소 수정 모달 (이름·생년월일은 병원에서만) ---------- */
+  function setupProfileEdit() {
+    var link = $('#bnProfileCard .sec-t .link');
+    if (!link) return;
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      var vals = $all('#bnProfileCard .kv .v');
+      var overlay = el('div', 'bn-overlay open');
+      var modal = el('div', 'bn-modal');
+      modal.setAttribute('role', 'dialog');
+      modal.appendChild(el('h3', null, '기본 정보 수정'));
+      var note = el('div', 'muted', '연락처와 주소만 수정할 수 있어요. 이름·생년월일 변경은 병원에 문의해 주세요.');
+      note.style.cssText = 'font-size:11.5px;margin:-4px 0 10px;';
+      modal.appendChild(note);
+      modal.appendChild(el('label', null, '연락처'));
+      var inPhone = document.createElement('input');
+      inPhone.type = 'tel';
+      inPhone.value = vals[3] ? vals[3].textContent : '';
+      inPhone.placeholder = '010-0000-0000';
+      modal.appendChild(inPhone);
+      modal.appendChild(el('label', null, '주소'));
+      var inAddr = document.createElement('input');
+      inAddr.type = 'text';
+      inAddr.maxLength = 120;
+      inAddr.value = vals[5] ? vals[5].textContent : '';
+      modal.appendChild(inAddr);
+      var err = el('div', 'bn-modal-err');
+      err.hidden = true;
+      modal.appendChild(err);
+      var btns = el('div', 'bn-modal-btns');
+      var save = el('button', 'bn-btn-primary', '저장'); save.type = 'button';
+      var cxl = el('button', 'bn-btn-ghost', '취소'); cxl.type = 'button';
+      btns.appendChild(save); btns.appendChild(cxl);
+      modal.appendChild(btns);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      function close() { overlay.remove(); }
+      cxl.addEventListener('click', close);
+      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+      save.addEventListener('click', function () {
+        err.hidden = true;
+        save.disabled = true;
+        patchJSON('/api/patients/me', { phone: inPhone.value.trim(), address: inAddr.value.trim() })
+          .then(function (res) {
+            save.disabled = false;
+            if (!res.ok) { err.textContent = apiErrMsg(res, '저장에 실패했습니다'); err.hidden = false; return; }
+            close();
+            toast('기본 정보가 수정되었습니다');
+            loadDashboard();
+          }).catch(function () { save.disabled = false; err.textContent = '서버에 연결할 수 없습니다.'; err.hidden = false; });
+      });
+    });
+  }
+
+  /* ---------- E⑧. 자주 묻는 질문 모달 (정적 문항) ---------- */
+  function setupFaq() {
+    var links = $all('a.sc-b');
+    var link = null;
+    links.forEach(function (a) { if (a.textContent.indexOf('자주 묻는') !== -1) link = a; });
+    if (!link) return;
+    var FAQ = [
+      ['예약은 어떻게 변경하나요?', '진료 예약 화면에서 [변경] 버튼으로 일시·진료과를 바꿀 수 있어요.'],
+      ['예약을 취소하면 불이익이 있나요?', '없어요. 다만 진료 2시간 전까지 취소해 주시면 다른 분에게 도움이 됩니다.'],
+      ['진료비는 어떻게 결제하나요?', '수납/결제 화면에서 카드로 결제할 수 있어요. 시연 환경에서는 실제 청구되지 않습니다.'],
+      ['영수증은 어디서 받나요?', '결제 완료된 내역의 [영수증] 링크에서 확인할 수 있어요.'],
+      ['진단서 발급은 얼마나 걸리나요?', '서류 발급 신청 후 담당의 승인까지 보통 1~2일 걸려요.'],
+      ['검사 결과는 언제 나오나요?', '혈액검사는 보통 2~3일 내 검사 결과 화면에서 확인할 수 있어요.']
+    ];
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      var overlay = el('div', 'bn-overlay open');
+      var modal = el('div', 'bn-modal');
+      modal.style.maxHeight = '80vh';
+      modal.style.overflow = 'auto';
+      modal.setAttribute('role', 'dialog');
+      modal.appendChild(el('h3', null, '자주 묻는 질문'));
+      FAQ.forEach(function (qa) {
+        var q = el('div', null, 'Q. ' + qa[0]);
+        q.style.cssText = 'font-size:13px;font-weight:700;margin:10px 0 3px;';
+        var a2 = el('div', 'muted', qa[1]);
+        a2.style.cssText = 'font-size:12.5px;line-height:1.5;';
+        modal.appendChild(q);
+        modal.appendChild(a2);
+      });
+      var btns = el('div', 'bn-modal-btns');
+      var ok = el('button', 'bn-btn-primary', '닫기'); ok.type = 'button';
+      btns.appendChild(ok);
+      modal.appendChild(btns);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      function close() { overlay.remove(); }
+      ok.addEventListener('click', close);
+      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+    });
+  }
+
   function init() {
     handlePaymentReturn(); // 토스 결제 복귀 쿼리 처리 (해시 라우팅 시작 전)
     loadDashboard();
     setupDocRequests();
     setupApptModal();
     setupFontToggle(); // M2
+    setupProfileEdit(); // E⑦
+    setupFaq(); // E⑧
     initViews();
   }
 

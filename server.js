@@ -33,6 +33,32 @@ function getPool() {
   return pool;
 }
 
+// ── 신규 컬럼 존재 감지 (페르소나 점검 마이그레이션) ────────
+// patients/appointments/encounters/vitals는 postgres 소유라 관리자 적용 전일 수 있음 →
+// 기동 시 1회 감지해, 컬럼이 없으면 해당 기능만 비활성(기존 동작 유지). 적용 후 재시작하면 자동 활성.
+const FEAT = { allergies: false, reason: false, patientSummary: false, vitalsExt: false, proposed: false };
+(async function detectFeatureColumns() {
+  try {
+    const r = await getPool().query(
+      `SELECT table_name, column_name FROM information_schema.columns
+        WHERE (table_name, column_name) IN
+              (('patients','allergies'), ('appointments','reason'),
+               ('encounters','patient_summary'), ('vitals','temp_c'))`);
+    r.rows.forEach((x) => {
+      if (x.column_name === 'allergies') FEAT.allergies = true;
+      if (x.column_name === 'reason') FEAT.reason = true;
+      if (x.column_name === 'patient_summary') FEAT.patientSummary = true;
+      if (x.column_name === 'temp_c') FEAT.vitalsExt = true;
+    });
+    // D. 재진 제안은 status CHECK 제약이 'proposed'를 허용할 때만 활성
+    const ck = await getPool().query(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname='appointments_status_check'`);
+    FEAT.proposed = !ck.rows.length || /proposed/.test(ck.rows[0].def || '');
+    const off = Object.keys(FEAT).filter((k) => !FEAT[k]);
+    if (off.length) console.warn('[migrate] 미적용 컬럼 — 기능 비활성:', off.join(', '), '(db/migrate-persona-fixes.sql 참고)');
+  } catch (e) { console.error('[migrate] 컬럼 감지 실패(신규 기능 비활성 유지):', e.message); }
+})();
+
 // ── 결제(토스페이먼츠) 설정 ─────────────────────────────────
 // 기본값은 토스 공식 문서의 공용 테스트 키(실결제 없음 — 커밋 가능).
 // 운영 키는 프로젝트 루트의 payments.config.json으로 덮어쓴다 (gitignore).
@@ -306,7 +332,7 @@ const DOC_TYPES = ['진단서', '소견서', '의무기록 사본', '검사결�
 const APPT_KINDS = ['진료', '검사', '투약', '처치', '물리치료', '수술', '검진'];
 const NOTE_TYPES = ['활력징후', '투약', '처치', '간호기록'];
 const DOC_STATUS_LABEL  = { requested: '신청됨', issued: '발급완료', rejected: '반려' };
-const APPT_STATUS_LABEL = { scheduled: '대기', done: '완료', cancelled: '취소', no_show: 'No-Show' };
+const APPT_STATUS_LABEL = { scheduled: '대기', done: '완료', cancelled: '취소', no_show: 'No-Show', proposed: '제안됨' }; // D. 재진 제안
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtDate(d)   { return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`; }          // "YYYY.MM.DD"
@@ -371,7 +397,8 @@ async function getDocRequests(db) {
 
 // patientDetail (계약 §4) — 의사 대시보드 recentPatient / 환자 검색 공용
 async function patientDetail(db, patientId) {
-  const pr = await db.query(`SELECT id, name, sex, birth_date, created_at FROM patients WHERE id=$1`, [patientId]);
+  const pr = await db.query(
+    `SELECT id, name, sex, birth_date, created_at${FEAT.allergies ? ', allergies' : ''} FROM patients WHERE id=$1`, [patientId]);
   if (!pr.rows.length) return null;
   const p = pr.rows[0];
   const [dxr, rxr, vr, lr, er, lsR, vsR] = await Promise.all([
@@ -379,12 +406,14 @@ async function patientDetail(db, patientId) {
               ORDER BY diagnosed_at ASC NULLS LAST, id`, [patientId]),
     db.query(`SELECT drug_name, dosage, active, start_date, end_date FROM prescriptions WHERE patient_id=$1
               ORDER BY start_date ASC NULLS LAST, id`, [patientId]),
-    db.query(`SELECT measured_at, systolic, diastolic, glucose, weight_kg, bmi FROM vitals
+    db.query(`SELECT measured_at, systolic, diastolic, glucose, weight_kg, bmi${FEAT.vitalsExt ? ', temp_c, pulse, spo2' : ''} FROM vitals
               WHERE patient_id=$1 ORDER BY measured_at DESC LIMIT 3`, [patientId]),
     db.query(`SELECT tested_at, test_name, value, ref_range, flag FROM lab_results
               WHERE patient_id=$1 ORDER BY tested_at DESC, id LIMIT 5`, [patientId]),
-    db.query(`SELECT visited_at, note FROM encounters
-              WHERE patient_id=$1 AND visited_at <= now() ORDER BY visited_at DESC LIMIT 1`, [patientId]),
+    // C. 최근 진료 5건 — 환자용 요약 편집기(의사)용 (lastVisit/memo는 첫 행 사용)
+    db.query(`SELECT id, visited_at, department, chief_complaint, note${FEAT.patientSummary ? ', patient_summary' : ''}
+                FROM encounters
+              WHERE patient_id=$1 AND visited_at <= now() ORDER BY visited_at DESC LIMIT 5`, [patientId]),
     // P3a: 추이 그래프용 시계열 — 검사는 항목별 최근 8건, 바이탈은 최근 10건 (오름차순)
     db.query(`SELECT tested_at, test_name, value, flag FROM (
                 SELECT tested_at, test_name, value, flag, id,
@@ -405,6 +434,8 @@ async function patientDetail(db, patientId) {
   const enc = er.rows[0];
   return {
     id: p.id, name: p.name, sex: p.sex, age: calcAge(p.birth_date), pid: fmtPid(p.id, p.created_at),
+    // A. 알레르기 — 컬럼 미적용(FEAT.allergies=false)이면 필드 자체를 생략(프론트는 표시 생략)
+    ...(FEAT.allergies ? { allergies: p.allergies || [] } : {}),
     dx: dxr.rows.map((r) => r.name).join(', '),
     rx: active.length ? active[0].drug_name + (active.length > 1 ? ` 외 ${active.length - 1}종` : '') : '',
     lastVisit: enc ? fmtDate(enc.visited_at) : '',
@@ -415,8 +446,14 @@ async function patientDetail(db, patientId) {
       prescriptions: rxr.rows.map((r) => ({ drug: r.drug_name, dosage: r.dosage, active: r.active,
         start: r.start_date ? fmtDate(r.start_date) : '', end: r.end_date ? fmtDate(r.end_date) : '' })),
       vitals: vr.rows.map((r) => ({ date: fmtDate(r.measured_at), systolic: r.systolic, diastolic: r.diastolic,
-                                    glucose: r.glucose, weight: toNum(r.weight_kg), bmi: toNum(r.bmi) })),
+                                    glucose: r.glucose, weight: toNum(r.weight_kg), bmi: toNum(r.bmi),
+                                    ...(FEAT.vitalsExt ? { temp: toNum(r.temp_c), pulse: r.pulse, spo2: r.spo2 } : {}) })),
       labs: lr.rows.map((r) => ({ date: fmtDate(r.tested_at), test: r.test_name, value: r.value, ref: r.ref_range, flag: r.flag })),
+      // C. 환자용 요약 편집기용 — summary 필드는 컬럼 적용 시에만 포함
+      encounters: er.rows.map((e2) => ({
+        id: e2.id, date: fmtDate(e2.visited_at), department: e2.department || '', cc: e2.chief_complaint || '',
+        ...(FEAT.patientSummary ? { summary: e2.patient_summary || '' } : {})
+      })),
       // P3a: 추이용 시계열 (기존 vitals/labs 필드는 그대로 — 하위호환)
       labSeries,
       vitalSeries: vsR.rows.map((r) => ({ date: fmtDate(r.measured_at), systolic: r.systolic, diastolic: r.diastolic, glucose: r.glucose }))
@@ -435,7 +472,7 @@ async function apiDashboardDoctor(req, res) {
     if (d.rows.length) doctorId = d.rows[0].id;
   }
   const [schedR, noShowR, encR, recentR, alertR, abnR, docRequests] = await Promise.all([
-    db.query(`SELECT a.scheduled_at, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date,
+    db.query(`SELECT a.scheduled_at, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date${FEAT.reason ? ', a.reason' : ''},
                      COALESCE((SELECT string_agg(d.name, '·' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
                                  FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
                 FROM appointments a JOIN patients p ON p.id=a.patient_id
@@ -472,7 +509,8 @@ async function apiDashboardDoctor(req, res) {
     }
     // P3b: patientId — 일정 행 → EMR 클릭스루용
     return { time: fmtTime(r.scheduled_at), patientId: r.patient_id, name: r.name, sex: r.sex,
-             age: calcAge(r.birth_date), dx: r.dx, status };
+             age: calcAge(r.birth_date), dx: r.dx, status,
+             ...(FEAT.reason ? { reason: r.reason || '' } : {}) }; // C. 방문 사유
   });
   // P2: '진료 대기'에서 진료 중 1건 이중계산 제거
   const waiting = schedR.rows.filter((r) => r.status === 'scheduled').length - (nowMarked ? 1 : 0);
@@ -527,11 +565,11 @@ async function apiDashboardNurse(req, res) {
     // P2: 투약·처치 알림은 병동 입원 환자 건만 (병원 전체 → 병동 스코프)
     db.query(`SELECT count(*)::int AS c FROM appointments a
                JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$1
-               WHERE a.kind='투약' AND a.scheduled_at::date=CURRENT_DATE AND a.status<>'cancelled'`, [ward]),
+               WHERE a.kind='투약' AND a.scheduled_at::date=CURRENT_DATE AND a.status NOT IN ('cancelled','proposed')`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM lab_results WHERE tested_at >= CURRENT_DATE - 7`),
     db.query(`SELECT count(*)::int AS c FROM appointments a
                JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$1
-               WHERE a.kind='처치' AND a.scheduled_at::date=CURRENT_DATE AND a.status<>'cancelled'`, [ward]),
+               WHERE a.kind='처치' AND a.scheduled_at::date=CURRENT_DATE AND a.status NOT IN ('cancelled','proposed')`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM admissions
                WHERE status='admitted' AND discharge_due BETWEEN CURRENT_DATE AND CURRENT_DATE + 1`),
     db.query(`SELECT count(*)::int AS c FROM documents WHERE status='requested'`),
@@ -541,9 +579,9 @@ async function apiDashboardNurse(req, res) {
     // P2: 병동 현황의 입원 수는 병동 스코프 (기존: 병원 전체)
     db.query(`SELECT count(*)::int AS c FROM admissions WHERE status='admitted' AND ward=$1`, [ward]),
     db.query(`SELECT count(*)::int AS c FROM appointments
-               WHERE kind='검사' AND scheduled_at::date=CURRENT_DATE AND status<>'cancelled'`),
+               WHERE kind='검사' AND scheduled_at::date=CURRENT_DATE AND status NOT IN ('cancelled','proposed')`),
     db.query(`SELECT count(*)::int AS c FROM appointments
-               WHERE kind='수술' AND scheduled_at::date=CURRENT_DATE AND status<>'cancelled'`),
+               WHERE kind='수술' AND scheduled_at::date=CURRENT_DATE AND status NOT IN ('cancelled','proposed')`),
     db.query(`SELECT name, profile FROM users WHERE role='doctor' AND active ORDER BY id`),
     // P2: 최근 간호기록도 병동 입원 환자 건만
     db.query(`SELECT n.note_type, ad.room
@@ -551,11 +589,12 @@ async function apiDashboardNurse(req, res) {
                 JOIN admissions ad ON ad.patient_id=n.patient_id AND ad.status='admitted' AND ad.ward=$1
                ORDER BY n.created_at DESC LIMIT 5`, [ward]),
     // 오늘 일정 카드용 — 내 병동 입원 환자 대상의 오늘 예약만 시간순 최대 6건 (정적 목업 대체)
-    db.query(`SELECT a.scheduled_at, a.kind, a.status, p.name, ad.room
+    db.query(`SELECT a.scheduled_at, a.kind, a.status, p.name, ad.room, ud.name AS doctor
                 FROM appointments a
                 JOIN patients p ON p.id=a.patient_id
+                LEFT JOIN users ud ON ud.id=a.doctor_id
                 JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$1
-               WHERE a.scheduled_at::date=CURRENT_DATE AND a.status<>'cancelled'
+               WHERE a.scheduled_at::date=CURRENT_DATE AND a.status NOT IN ('cancelled','proposed')
                ORDER BY a.scheduled_at LIMIT 6`, [ward]),
     getDocRequests(db)
   ]);
@@ -591,7 +630,8 @@ async function apiDashboardNurse(req, res) {
   sendJson(res, 200, {
     todayLabel: fmtDateW(new Date()),
     todaySchedule: schedR.rows.map((r) => ({
-      time: fmtTime(r.scheduled_at), kind: r.kind, patientName: r.name, room: r.room || '', status: r.status
+      time: fmtTime(r.scheduled_at), kind: r.kind, patientName: r.name, room: r.room || '', status: r.status,
+      doctor: r.doctor || '' // E⑫. 담당의
     })),
     sidebar: { vitals: sbR.rows[0].vitals, meds: sbR.rows[0].meds },
     patientCount: cntR.rows[0].c,
@@ -640,7 +680,7 @@ async function apiDashboardPatient(req, res) {
                 FROM appointments a LEFT JOIN users u ON u.id=a.doctor_id
                WHERE a.patient_id=$1 AND a.status='scheduled' AND a.scheduled_at > now()
                ORDER BY a.scheduled_at LIMIT 4`, [p.id]),
-    db.query(`SELECT e.visited_at, e.department, u.name AS dname, u.profile AS dprofile,
+    db.query(`SELECT e.id, e.visited_at, e.department, u.name AS dname, u.profile AS dprofile${FEAT.patientSummary ? ', e.patient_summary' : ''},
                      COALESCE((SELECT string_agg(d.name, ', ' ORDER BY d.id)
                                  FROM diagnoses d WHERE d.encounter_id=e.id), '') AS dx
                 FROM encounters e LEFT JOIN users u ON u.id=e.doctor_id
@@ -694,12 +734,15 @@ async function apiDashboardPatient(req, res) {
     profile: {
       name: p.name, birth: p.birth_date ? fmtDate(p.birth_date) : '', age: calcAge(p.birth_date),
       sexLabel: p.sex === 'M' ? '남' : p.sex === 'F' ? '여' : '',
-      phone: p.phone || '', email: (p.user_profile && p.user_profile.email) || '', address: p.address || ''
+      phone: p.phone || '', email: (p.user_profile && p.user_profile.email) || '', address: p.address || '',
+      // A. 알레르기 조회 전용 (myPatientRow가 p.*라 컬럼 적용 시 자동 포함)
+      ...(FEAT.allergies ? { allergies: p.allergies || [] } : {})
     },
     nextAppt,
     upcoming,
     encounters: encR.rows.map((r) => ({
-      date: fmtDate(r.visited_at), department: r.department || '', dx: r.dx, doctor: doctorLabel(r.dname, r.dprofile)
+      id: r.id, date: fmtDate(r.visited_at), department: r.department || '', dx: r.dx, doctor: doctorLabel(r.dname, r.dprofile),
+      ...(FEAT.patientSummary ? { summary: r.patient_summary || '' } : {}) // C. 환자용 요약
     })),
     meds: medR.rows.map((r) => ({ name: r.drug_name, dosage: r.dosage })),
     docs: docR.rows.map((r) => ({ type: r.doc_type, date: fmtDate(r.requested_at), status: r.status, statusLabel: DOC_STATUS_LABEL[r.status] || r.status })),
@@ -767,12 +810,42 @@ async function apiCreateDocument(req, res) {
   });
 }
 
-// §5 POST /api/appointments (patient) — doctor_id=첫 의사, department=그 의사 진료과
+// D. 의사 재진 제안: 본인이 진료한 환자에게만, status='proposed' (대기/일정 집계에서 제외)
+async function apiProposeAppointment(req, res, me, body) {
+  if (!FEAT.proposed)
+    return sendJson(res, 409, { error: '재진 제안 기능은 마이그레이션 적용 후 사용할 수 있습니다 (db/migrate-persona-fixes.sql).' });
+  const db = getPool();
+  const pid = parseId(body.patient_id);
+  if (!pid) return sendJson(res, 400, { error: '잘못된 patient_id' });
+  const { date, time } = body;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')))
+    return sendJson(res, 400, { error: '날짜/시간 형식 오류' });
+  const kind = APPT_KINDS.includes(body.kind) ? body.kind : '진료';
+  const when = new Date(`${date}T${time}:00`);
+  if (isNaN(when.getTime()) || when.getTime() <= Date.now())
+    return sendJson(res, 400, { error: '미래 시각을 지정해 주세요.' });
+  const mine = await db.query(
+    `SELECT 1 FROM encounters WHERE patient_id=$1 AND doctor_id=$2
+     UNION SELECT 1 FROM appointments WHERE patient_id=$1 AND doctor_id=$2 LIMIT 1`, [pid, me.id]);
+  if (!mine.rows.length)
+    return sendJson(res, 403, { error: '본인이 진료한 환자에게만 재진을 제안할 수 있습니다.' });
+  const reason = String(body.reason || '').trim().slice(0, 200) || null;
+  const department = (me.profile && me.profile.department) || null;
+  await db.query(
+    `INSERT INTO appointments (patient_id, doctor_id, scheduled_at, department, kind, status${FEAT.reason ? ', reason' : ''})
+     VALUES ($1,$2,$3,$4,$5,'proposed'${FEAT.reason ? ', $6' : ''})`,
+    FEAT.reason ? [pid, me.id, when, department, kind, reason] : [pid, me.id, when, department, kind]);
+  sendJson(res, 201, { ok: true, proposed: true });
+}
+
+// §5 POST /api/appointments — patient: scheduled 생성 / doctor: 재진 제안(proposed)만 생성(D)
 async function apiCreateAppointment(req, res) {
-  const me = await requireRole(req, res, ['patient']);
+  const me = await requireRole(req, res, ['patient', 'doctor']);
   if (!me) return;
   const body = await readJsonBody(req);
   if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
+  // D. 의사 재진 제안 — 자기 환자에게 status='proposed'로만 생성 (환자가 확정/거절)
+  if (me.role === 'doctor') return apiProposeAppointment(req, res, me, body);
   const { date, time, kind } = body;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')))
     return sendJson(res, 400, { error: '날짜/시간 형식 오류' });
@@ -804,10 +877,32 @@ async function apiCreateAppointment(req, res) {
   }
   const doctorId = drow ? drow.id : null;
   const department = drow ? (drow.profile && drow.profile.department) || null : null;
+  // C. 방문 사유(선택, 200자) — 컬럼 미적용(FEAT.reason=false)이면 저장 생략
+  const reason = String(body.reason || '').trim().slice(0, 200) || null;
   await db.query(
-    `INSERT INTO appointments (patient_id, doctor_id, scheduled_at, department, kind)
-     VALUES ($1, $2, $3, $4, $5)`, [p.id, doctorId, when, department, kind]);
+    `INSERT INTO appointments (patient_id, doctor_id, scheduled_at, department, kind${FEAT.reason ? ', reason' : ''})
+     VALUES ($1, $2, $3, $4, $5${FEAT.reason ? ', $6' : ''})`,
+    FEAT.reason ? [p.id, doctorId, when, department, kind, reason] : [p.id, doctorId, when, department, kind]);
   sendJson(res, 201, { ok: true, doctorName: drow ? drow.name : null, department });
+}
+
+// C. PATCH /api/encounters/:id — doctor 전용, 환자용 요약(patient_summary)만 갱신.
+// encounters.note 원문은 환자에게 계속 비노출 (의사 사고과정 메모).
+async function apiEncounterPatch(req, res, id) {
+  const me = await requireRole(req, res, ['doctor']);
+  if (!me) return;
+  if (!FEAT.patientSummary)
+    return sendJson(res, 409, { error: '환자용 요약 컬럼이 아직 적용되지 않았습니다 (db/migrate-persona-fixes.sql).' });
+  const body = await readJsonBody(req);
+  if (!body || body.patient_summary === undefined) return sendJson(res, 400, { error: '잘못된 요청' });
+  const summary = String(body.patient_summary || '').trim().slice(0, 1000);
+  const db = getPool();
+  const r = await db.query(`SELECT id, doctor_id FROM encounters WHERE id=$1`, [id]);
+  if (!r.rows.length) return sendJson(res, 404, { error: '진료 기록을 찾을 수 없습니다.' });
+  if (r.rows[0].doctor_id && r.rows[0].doctor_id !== me.id)
+    return sendJson(res, 403, { error: '본인이 진료한 기록의 요약만 수정할 수 있습니다.' });
+  await db.query(`UPDATE encounters SET patient_summary=$1 WHERE id=$2`, [summary || null, id]);
+  sendJson(res, 200, { ok: true });
 }
 
 // §5 POST /api/memos (nurse, admin)
@@ -875,20 +970,33 @@ async function apiAppointmentsGet(req, res) {
   if (me.role === 'patient' || (me.role === 'admin' && scope === 'self')) {
     const p = await myPatientRow(db, me);
     if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
-    const [upR, pastR] = await Promise.all([
-      db.query(`SELECT a.id, a.scheduled_at, a.kind, a.department, u.name AS dname, u.profile AS dprofile
+    const [upR, pastR, propR] = await Promise.all([
+      db.query(`SELECT a.id, a.scheduled_at, a.kind, a.department${FEAT.reason ? ', a.reason' : ''}, u.name AS dname, u.profile AS dprofile
                   FROM appointments a LEFT JOIN users u ON u.id=a.doctor_id
                  WHERE a.patient_id=$1 AND a.status='scheduled' AND a.scheduled_at > now()
                  ORDER BY a.scheduled_at, a.id`, [p.id]),
       db.query(`SELECT a.id, a.scheduled_at, a.kind, a.department, a.status, u.name AS dname, u.profile AS dprofile
                   FROM appointments a LEFT JOIN users u ON u.id=a.doctor_id
                  WHERE a.patient_id=$1 AND (a.scheduled_at <= now() OR a.status <> 'scheduled')
-                 ORDER BY a.scheduled_at DESC, a.id DESC LIMIT 10`, [p.id])
+                   AND a.status <> 'proposed'
+                 ORDER BY a.scheduled_at DESC, a.id DESC LIMIT 10`, [p.id]),
+      // D. 의사 재진 제안 — 환자가 확정/거절
+      db.query(`SELECT a.id, a.scheduled_at, a.kind, a.department${FEAT.reason ? ', a.reason' : ''}, u.name AS dname, u.profile AS dprofile
+                  FROM appointments a LEFT JOIN users u ON u.id=a.doctor_id
+                 WHERE a.patient_id=$1 AND a.status='proposed' AND a.scheduled_at > now()
+                 ORDER BY a.scheduled_at, a.id`, [p.id])
     ]);
     return sendJson(res, 200, {
       upcoming: upR.rows.map((r) => ({
         id: r.id, date: fmtDateW(r.scheduled_at), time: fmtTime(r.scheduled_at), kind: r.kind || '',
-        department: r.department || '', doctor: doctorLabel(r.dname, r.dprofile), cancellable: true
+        dateISO: `${r.scheduled_at.getFullYear()}-${pad2(r.scheduled_at.getMonth() + 1)}-${pad2(r.scheduled_at.getDate())}`, // D. 변경 모달 프리필용
+        department: r.department || '', doctor: doctorLabel(r.dname, r.dprofile), cancellable: true,
+        ...(FEAT.reason ? { reason: r.reason || '' } : {})
+      })),
+      proposed: propR.rows.map((r) => ({
+        id: r.id, date: fmtDateW(r.scheduled_at), time: fmtTime(r.scheduled_at), kind: r.kind || '',
+        department: r.department || '', doctor: doctorLabel(r.dname, r.dprofile),
+        ...(FEAT.reason ? { reason: r.reason || '' } : {})
       })),
       past: pastR.rows.map((r) => ({
         id: r.id, date: fmtDateW(r.scheduled_at), time: fmtTime(r.scheduled_at), kind: r.kind || '',
@@ -919,19 +1027,23 @@ async function apiAppointmentsGet(req, res) {
     if (wardScoped) {
       ward = await nurseWard(db, me);
       r = await db.query(
-        `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date, ad.room, ${MEDS_SQL}
+        `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date, ad.room${FEAT.reason ? ', a.reason' : ''},
+                ud.name AS doctor, ${MEDS_SQL}
            FROM appointments a JOIN patients p ON p.id=a.patient_id
+           LEFT JOIN users ud ON ud.id=a.doctor_id
            JOIN admissions ad ON ad.patient_id=a.patient_id AND ad.status='admitted' AND ad.ward=$2
-          WHERE a.scheduled_at::date=$1::date
+          WHERE a.scheduled_at::date=$1::date AND a.status <> 'proposed'
           ORDER BY a.scheduled_at, a.id`, [dateParam, ward]);
     } else {
       r = await db.query(
         `SELECT a.id, a.scheduled_at, a.kind, a.status, p.name, p.sex, p.birth_date,
                 (SELECT ad.room FROM admissions ad
                   WHERE ad.patient_id=a.patient_id AND ad.status='admitted'
-                  ORDER BY ad.admitted_at DESC LIMIT 1) AS room, ${MEDS_SQL}
+                  ORDER BY ad.admitted_at DESC LIMIT 1) AS room${FEAT.reason ? ', a.reason' : ''},
+                ud.name AS doctor, ${MEDS_SQL}
            FROM appointments a JOIN patients p ON p.id=a.patient_id
-          WHERE a.scheduled_at::date=$1::date
+           LEFT JOIN users ud ON ud.id=a.doctor_id
+          WHERE a.scheduled_at::date=$1::date AND a.status <> 'proposed'
           ORDER BY a.scheduled_at, a.id`, [dateParam]);
     }
     return sendJson(res, 200, {
@@ -942,7 +1054,8 @@ async function apiAppointmentsGet(req, res) {
         const row = {
           id: x.id, time: fmtTime(x.scheduled_at), name: x.name, sex: x.sex, age: calcAge(x.birth_date),
           kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status,
-          room: x.room || ''
+          room: x.room || '', doctor: x.doctor || '', // E⑫. 담당의
+          ...(FEAT.reason ? { reason: x.reason || '' } : {}) // C. 방문 사유
         };
         if (x.kind === '투약') row.meds = x.meds || [];
         return row;
@@ -958,18 +1071,19 @@ async function apiAppointmentsGet(req, res) {
   }
   // P3b: patientId·dx 포함 — 일정 행 → EMR 클릭스루 + 진단 컬럼
   const r = await db.query(
-    `SELECT a.id, a.scheduled_at, a.kind, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date,
+    `SELECT a.id, a.scheduled_at, a.kind, a.status, p.id AS patient_id, p.name, p.sex, p.birth_date${FEAT.reason ? ', a.reason' : ''},
             COALESCE((SELECT string_agg(d.name, '·' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
                         FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
        FROM appointments a JOIN patients p ON p.id=a.patient_id
-      WHERE a.doctor_id=$1 AND a.scheduled_at::date=$2::date
+      WHERE a.doctor_id=$1 AND a.scheduled_at::date=$2::date AND a.status <> 'proposed'
       ORDER BY a.scheduled_at, a.id`, [doctorId, dateParam]);
   sendJson(res, 200, {
     dateLabel: fmtDateKo(day),
     rows: r.rows.map((x) => ({
       id: x.id, time: fmtTime(x.scheduled_at), patientId: x.patient_id, name: x.name, sex: x.sex,
       age: calcAge(x.birth_date), dx: x.dx,
-      kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status
+      kind: x.kind || '', status: x.status, statusLabel: APPT_STATUS_LABEL[x.status] || x.status,
+      ...(FEAT.reason ? { reason: x.reason || '' } : {}) // C. 방문 사유
     }))
   });
 }
@@ -981,19 +1095,74 @@ async function apiAppointmentPatch(req, res, id) {
   const body = await readJsonBody(req);
   if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
   const status = body.status;
-  if (status !== 'cancelled' && status !== 'done') return sendJson(res, 400, { error: '잘못된 상태 값' });
   const db = getPool();
   const r = await db.query(
-    `SELECT a.id, a.patient_id, a.scheduled_at, a.kind, a.status, p.user_id
+    `SELECT a.id, a.patient_id, a.doctor_id, a.scheduled_at, a.kind, a.status, p.user_id
        FROM appointments a JOIN patients p ON p.id=a.patient_id WHERE a.id=$1`, [id]);
   if (!r.rows.length) return sendJson(res, 404, { error: '예약을 찾을 수 없습니다.' });
   const a = r.rows[0];
-  if (me.role === 'patient') {                     // 취소만, 본인 + 미래 + scheduled
-    if (status !== 'cancelled') return sendJson(res, 403, { error: 'forbidden' });
+  if (me.role === 'patient') {
     if (a.user_id !== me.id) return sendJson(res, 403, { error: 'forbidden' });
-    if (a.status !== 'scheduled') return sendJson(res, 400, { error: '취소할 수 없는 예약입니다.' });
+    // D-1. 취소 (scheduled) / 제안 거절 (proposed)
+    if (status === 'cancelled') {
+      if (a.status !== 'scheduled' && a.status !== 'proposed')
+        return sendJson(res, 400, { error: '취소할 수 없는 예약입니다.' });
+      if (a.status === 'scheduled' && new Date(a.scheduled_at).getTime() <= Date.now())
+        return sendJson(res, 400, { error: '지난 예약은 취소할 수 없습니다.' });
+      await db.query(`UPDATE appointments SET status='cancelled' WHERE id=$1`, [id]);
+      return sendJson(res, 200, { ok: true });
+    }
+    // D-2. 재진 제안 확정 (proposed → scheduled)
+    if (status === 'scheduled') {
+      if (a.status !== 'proposed') return sendJson(res, 400, { error: '확정할 수 없는 예약입니다.' });
+      await db.query(`UPDATE appointments SET status='scheduled' WHERE id=$1`, [id]);
+      return sendJson(res, 200, { ok: true });
+    }
+    // D-3. 예약 변경 — 본인 + scheduled + 미래, 일시·진료과·종류·사유
+    if (status !== undefined) return sendJson(res, 400, { error: '잘못된 상태 값' });
+    if (a.status !== 'scheduled') return sendJson(res, 400, { error: '변경할 수 없는 예약입니다.' });
     if (new Date(a.scheduled_at).getTime() <= Date.now())
-      return sendJson(res, 400, { error: '지난 예약은 취소할 수 없습니다.' });
+      return sendJson(res, 400, { error: '지난 예약은 변경할 수 없습니다.' });
+    const { date, time, kind } = body;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')))
+      return sendJson(res, 400, { error: '날짜/시간 형식 오류' });
+    if (!APPT_KINDS.includes(kind)) return sendJson(res, 400, { error: '잘못된 예약 종류' });
+    const when = new Date(`${date}T${time}:00`);
+    if (isNaN(when.getTime()) || fmtDate(when) !== date.replace(/-/g, '.'))
+      return sendJson(res, 400, { error: '유효하지 않은 날짜' });
+    if (when.getTime() <= Date.now()) return sendJson(res, 400, { error: '과거 시각으로 변경할 수 없습니다.' });
+    const dup = await db.query(
+      `SELECT 1 FROM appointments WHERE patient_id=$1 AND scheduled_at=$2 AND status='scheduled' AND id<>$3`,
+      [a.patient_id, when, id]);
+    if (dup.rows.length)
+      return sendJson(res, 409, { error: '같은 시간에 이미 예약이 있습니다. 다른 시간을 선택해 주세요.' });
+    // 진료과 변경 시 해당 과 active 의사 중 id 최소로 재배정 (apiCreateAppointment와 동일 규칙)
+    const deptReq = String(body.department || '').trim();
+    let drow = null;
+    if (deptReq) {
+      const d2 = await db.query(
+        `SELECT id, name, profile FROM users
+          WHERE role='doctor' AND active AND profile->>'department' = $1 ORDER BY id LIMIT 1`, [deptReq]);
+      if (!d2.rows.length) return sendJson(res, 400, { error: '선택할 수 없는 진료과입니다.' });
+      drow = d2.rows[0];
+    }
+    const reason = String(body.reason || '').trim().slice(0, 200) || null;
+    const sets = ['scheduled_at=$2', 'kind=$3'];
+    const params = [id, when, kind];
+    if (drow) {
+      params.push(drow.id); sets.push(`doctor_id=$${params.length}`);
+      params.push((drow.profile && drow.profile.department) || null); sets.push(`department=$${params.length}`);
+    }
+    if (FEAT.reason) { params.push(reason); sets.push(`reason=$${params.length}`); }
+    await db.query(`UPDATE appointments SET ${sets.join(', ')} WHERE id=$1`, params);
+    return sendJson(res, 200, { ok: true, doctorName: drow ? drow.name : null });
+  }
+  if (status !== 'cancelled' && status !== 'done') return sendJson(res, 400, { error: '잘못된 상태 값' });
+  // D. 의사: 본인이 낸 재진 제안(proposed) 취소 허용
+  if (status === 'cancelled') {
+    if (me.role !== 'doctor' || a.status !== 'proposed')
+      return sendJson(res, 400, { error: '취소할 수 없는 예약입니다.' });
+    if (a.doctor_id !== me.id) return sendJson(res, 403, { error: '본인이 낸 제안만 취소할 수 있습니다.' });
     await db.query(`UPDATE appointments SET status='cancelled' WHERE id=$1`, [id]);
     return sendJson(res, 200, { ok: true });
   }
@@ -1038,7 +1207,7 @@ async function apiEncounters(req, res) {
   const [cntR, rowR] = await Promise.all([
     db.query(`SELECT count(*)::int AS c FROM encounters e ${where}`, params),
     db.query(
-      `SELECT e.visited_at, e.department, e.note, p.name AS pname, u.name AS dname, u.profile AS dprofile,
+      `SELECT e.visited_at, e.department, e.note, p.name AS pname, u.name AS dname, u.profile AS dprofile${FEAT.patientSummary ? ', e.patient_summary' : ''},
               COALESCE(NULLIF((SELECT string_agg(d.name, ', ' ORDER BY d.id)
                                  FROM diagnoses d WHERE d.encounter_id=e.id), ''),
                        (SELECT string_agg(d.name, ', ' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
@@ -1057,7 +1226,12 @@ async function apiEncounters(req, res) {
       row.department = r.department || '';
       row.dx = r.dx;
       row.doctor = doctorLabel(r.dname, r.dprofile);
-      row.note = r.note || '';
+      // C. 환자에게는 의사 메모(note) 원문 비노출 — 대신 환자용 요약(summary)만 제공
+      if (omitPatient) {
+        if (FEAT.patientSummary) row.summary = r.patient_summary || '';
+      } else {
+        row.note = r.note || '';
+      }
       return row;
     })
   });
@@ -1135,6 +1309,28 @@ async function apiBillsGet(req, res) {
   });
 }
 
+// E⑦. PATCH /api/patients/me — 본인 연락처·주소만 수정 (이름·생년월일은 병원에서만)
+async function apiPatientMePatch(req, res) {
+  const me = await requireRole(req, res, ['patient']);
+  if (!me) return;
+  const body = await readJsonBody(req);
+  if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
+  const db = getPool();
+  const p = await myPatientRow(db, me);
+  if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
+  const phone = String(body.phone || '').trim().slice(0, 20);
+  const address = String(body.address || '').trim().slice(0, 120);
+  if (!phone && !address) return sendJson(res, 400, { error: '수정할 항목이 없습니다.' });
+  if (phone && !/^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(phone))
+    return sendJson(res, 400, { error: '연락처 형식을 확인해 주세요. (예: 010-1234-5678)' });
+  const sets = [], params = [];
+  if (phone) { params.push(phone); sets.push(`phone=$${params.length}`); }
+  if (address) { params.push(address); sets.push(`address=$${params.length}`); }
+  params.push(p.id);
+  await db.query(`UPDATE patients SET ${sets.join(', ')} WHERE id=$${params.length}`, params);
+  sendJson(res, 200, { ok: true });
+}
+
 // ── 토스페이먼츠 결제 (기존 데모 PATCH 수납을 대체) ─────────
 // 1단계 POST /api/bills/:id/checkout — 본인 미납 건에 orderId 발급 후 결제창 파라미터 반환
 async function apiBillCheckout(req, res, id) {
@@ -1157,6 +1353,28 @@ async function apiBillCheckout(req, res, id) {
   });
 }
 
+// E⑨. POST /api/bills/checkout-all — 미납 전체를 토스 1건으로 합산 결제.
+// bills_order_id_uq(유니크) 때문에 각 행에는 '<batch>-<billId>'를 저장하고,
+// 토스 orderId로는 batch만 사용 → confirm에서 prefix로 일괄 조회·검증한다.
+async function apiBillCheckoutAll(req, res) {
+  const me = await requireRole(req, res, ['patient']);
+  if (!me) return;
+  const db = getPool();
+  const p = await myPatientRow(db, me);
+  if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
+  const bills = await db.query(
+    `SELECT id, amount FROM bills WHERE patient_id=$1 AND NOT paid ORDER BY id`, [p.id]);
+  if (!bills.rows.length) return sendJson(res, 400, { error: '미납 내역이 없습니다.' });
+  const batch = 'bnall' + crypto.randomBytes(8).toString('hex');
+  for (const b of bills.rows)
+    await db.query(`UPDATE bills SET order_id=$1 WHERE id=$2`, [`${batch}-${b.id}`, b.id]);
+  const total = bills.rows.reduce((sum, b) => sum + b.amount, 0);
+  sendJson(res, 200, {
+    ok: true, clientKey: PAY_CONF.tossClientKey, orderId: batch, amount: total,
+    orderName: `진료비 ${bills.rows.length}건`, customerName: me.name, count: bills.rows.length
+  });
+}
+
 // 2단계 POST /api/payments/confirm — 금액 검증 후 토스 승인 API 호출, 성공 시에만 paid 처리
 async function apiPaymentConfirm(req, res) {
   const me = await requireRole(req, res, ['patient']);
@@ -1171,12 +1389,27 @@ async function apiPaymentConfirm(req, res) {
   const db = getPool();
   const p = await myPatientRow(db, me);
   if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
-  const r = await db.query(
-    `SELECT id, amount, paid FROM bills WHERE order_id=$1 AND patient_id=$2`, [orderId, p.id]);
-  if (!r.rows.length) return sendJson(res, 404, { error: '주문 정보를 찾을 수 없습니다.' });
-  const bill = r.rows[0];
-  if (bill.paid) return sendJson(res, 200, { ok: true, already: true }); // 중복 confirm 허용
-  if (amount !== bill.amount)
+  // E⑨. 합산 결제(batch)면 prefix로 대상 bill 전체를 조회해 합계로 검증
+  const isBatch = /^bnall[0-9a-f]{16}$/.test(orderId);
+  let billIds = [], expected = 0;
+  if (isBatch) {
+    const rs = await db.query(
+      `SELECT id, amount, paid FROM bills WHERE order_id LIKE $1 AND patient_id=$2 ORDER BY id`,
+      [orderId + '-%', p.id]);
+    if (!rs.rows.length) return sendJson(res, 404, { error: '주문 정보를 찾을 수 없습니다.' });
+    if (rs.rows.every((b) => b.paid)) return sendJson(res, 200, { ok: true, already: true });
+    billIds = rs.rows.map((b) => b.id);
+    expected = rs.rows.reduce((sum, b) => sum + b.amount, 0);
+  } else {
+    const r = await db.query(
+      `SELECT id, amount, paid FROM bills WHERE order_id=$1 AND patient_id=$2`, [orderId, p.id]);
+    if (!r.rows.length) return sendJson(res, 404, { error: '주문 정보를 찾을 수 없습니다.' });
+    const bill = r.rows[0];
+    if (bill.paid) return sendJson(res, 200, { ok: true, already: true }); // 중복 confirm 허용
+    billIds = [bill.id];
+    expected = bill.amount;
+  }
+  if (amount !== expected)
     return sendJson(res, 400, { error: '결제 금액이 일치하지 않습니다.' }); // 토스 호출 전 검증
   let tossRes, result;
   try {
@@ -1200,9 +1433,10 @@ async function apiPaymentConfirm(req, res) {
     return sendJson(res, st, { error: (result && result.message) || '결제 승인에 실패했습니다.', code: (result && result.code) || null });
   }
   await db.query(
-    `UPDATE bills SET paid=TRUE, payment_key=$1, pay_method=$2, approved_at=$3, receipt_url=$4 WHERE id=$5`,
+    `UPDATE bills SET paid=TRUE, payment_key=$1, pay_method=$2, approved_at=$3, receipt_url=$4
+      WHERE id = ANY($5::int[])`,
     [paymentKey, result.method || null, result.approvedAt || null,
-     (result.receipt && result.receipt.url) || null, bill.id]);
+     (result.receipt && result.receipt.url) || null, billIds]);
   sendJson(res, 200, { ok: true, method: result.method || '', receiptUrl: (result.receipt && result.receipt.url) || '' });
 }
 
@@ -1278,7 +1512,10 @@ async function apiAdmissionsGet(req, res) {
   const me = await requireRole(req, res, ['nurse', 'doctor']);
   if (!me) return;
   const db = getPool();
-  const ward = String((url.parse(req.url, true).query.ward || '')).trim() || null;
+  const q0 = url.parse(req.url, true).query;
+  let ward = String(q0.ward || '').trim() || null;
+  // E⑪. 간호사는 기본 내 병동 스코프 (?scope=all이면 전체 — 다른 뷰와 일관)
+  if (!ward && me.role === 'nurse' && String(q0.scope || '') !== 'all') ward = await nurseWard(db, me);
   const r = await db.query(
     `SELECT a.id, a.room, a.ward, a.admitted_at, a.discharge_due, a.status,
             (a.discharge_due BETWEEN CURRENT_DATE AND CURRENT_DATE + 1) AS due_soon,
@@ -1287,6 +1524,7 @@ async function apiAdmissionsGet(req, res) {
       WHERE ($1::text IS NULL OR a.ward=$1)
       ORDER BY a.room, a.id`, [ward]);
   sendJson(res, 200, {
+    ward, // E⑪. 적용된 병동 스코프 (null=전체)
     rows: r.rows.map((x) => {
       let statusLabel = '입원 중';
       if (x.status === 'discharged') statusLabel = '퇴원';
@@ -1517,15 +1755,43 @@ async function apiVitalPost(req, res) {
     if (!Number.isInteger(glu) || glu < 30 || glu > 600)
       return sendJson(res, 400, { error: '혈당은 30~600 사이 정수여야 합니다.' });
   }
+  // E⑩. 체온·맥박·SpO2 (선택) — 컬럼 미적용(FEAT.vitalsExt=false)이면 저장 생략
+  let temp = null, pulse = null, spo2 = null;
+  if (body.temp_c !== undefined && body.temp_c !== null && String(body.temp_c) !== '') {
+    temp = Math.round(Number(body.temp_c) * 10) / 10;
+    if (!isFinite(temp) || temp < 30 || temp > 45)
+      return sendJson(res, 400, { error: '체온은 30.0~45.0 사이여야 합니다.' });
+  }
+  if (body.pulse !== undefined && body.pulse !== null && String(body.pulse) !== '') {
+    pulse = Number(body.pulse);
+    if (!Number.isInteger(pulse) || pulse < 20 || pulse > 250)
+      return sendJson(res, 400, { error: '맥박은 20~250 사이 정수여야 합니다.' });
+  }
+  if (body.spo2 !== undefined && body.spo2 !== null && String(body.spo2) !== '') {
+    spo2 = Number(body.spo2);
+    if (!Number.isInteger(spo2) || spo2 < 50 || spo2 > 100)
+      return sendJson(res, 400, { error: 'SpO2는 50~100 사이 정수여야 합니다.' });
+  }
   const db = getPool();
   const p = await db.query(`SELECT id FROM patients WHERE id=$1`, [pid]);
   if (!p.rows.length) return sendJson(res, 404, { error: '환자를 찾을 수 없습니다.' });
-  await db.query(
-    `INSERT INTO vitals (patient_id, measured_at, systolic, diastolic, glucose) VALUES ($1, now(), $2, $3, $4)`,
-    [pid, sys, dia, glu]);
+  if (FEAT.vitalsExt) {
+    await db.query(
+      `INSERT INTO vitals (patient_id, measured_at, systolic, diastolic, glucose, temp_c, pulse, spo2)
+       VALUES ($1, now(), $2, $3, $4, $5, $6, $7)`, [pid, sys, dia, glu, temp, pulse, spo2]);
+  } else {
+    await db.query(
+      `INSERT INTO vitals (patient_id, measured_at, systolic, diastolic, glucose) VALUES ($1, now(), $2, $3, $4)`,
+      [pid, sys, dia, glu]);
+  }
+  const extra = [];
+  if (glu != null) extra.push(`혈당 ${glu}`);
+  if (FEAT.vitalsExt && temp != null) extra.push(`체온 ${temp}`);
+  if (FEAT.vitalsExt && pulse != null) extra.push(`맥박 ${pulse}`);
+  if (FEAT.vitalsExt && spo2 != null) extra.push(`SpO2 ${spo2}`);
   await db.query(
     `INSERT INTO nursing_notes (patient_id, nurse_id, note_type, content) VALUES ($1, $2, '활력징후', $3)`,
-    [pid, me.id, `혈압 ${sys}/${dia}${glu != null ? `, 혈당 ${glu}` : ''} 측정`]);
+    [pid, me.id, `혈압 ${sys}/${dia}${extra.length ? ', ' + extra.join(', ') : ''} 측정`]);
   sendJson(res, 200, { ok: true });
 }
 
@@ -1555,7 +1821,7 @@ async function apiHandover(req, res) {
   if (!['day', 'evening', 'night'].includes(shift)) shift = currentShift(now);
   const { from, to } = shiftRange(shift, now);
   const [patR, memoR] = await Promise.all([
-    db.query(`SELECT p.id, p.name, p.sex, p.birth_date, a.room,
+    db.query(`SELECT p.id, p.name, p.sex, p.birth_date, a.room${FEAT.allergies ? ', p.allergies' : ''},
                      COALESCE((SELECT string_agg(d.name, ', ' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
                                  FROM diagnoses d WHERE d.patient_id=p.id), '') AS dx
                 FROM admissions a JOIN patients p ON p.id=a.patient_id
@@ -1573,7 +1839,7 @@ async function apiHandover(req, res) {
     db.query(`SELECT patient_id, created_at, note_type, content FROM nursing_notes
                WHERE patient_id = ANY($1::int[]) AND created_at >= $2 AND created_at < $3
                ORDER BY created_at`, [ids, from, to]),
-    db.query(`SELECT patient_id, scheduled_at, kind FROM appointments
+    db.query(`SELECT patient_id, scheduled_at, kind${FEAT.reason ? ', reason' : ''} FROM appointments
                WHERE patient_id = ANY($1::int[]) AND status='scheduled'
                  AND scheduled_at::date=CURRENT_DATE AND scheduled_at >= now()
                ORDER BY scheduled_at`, [ids]),
@@ -1592,14 +1858,120 @@ async function apiHandover(req, res) {
       const v = vitMap.get(r.id);
       return {
         patientId: r.id, // M3: 바이탈 입력 대상 지정용
+        ...(FEAT.allergies ? { allergies: r.allergies || [] } : {}), // A. 인계 보드 알레르기
         room: r.room || '', name: r.name, sex: r.sex, age: calcAge(r.birth_date), dx: r.dx,
         lastVital: v ? { time: fmtTime(v.measured_at), systolic: v.systolic, diastolic: v.diastolic, glucose: v.glucose } : null,
         notes: (noteMap.get(r.id) || []).map((n) => ({ time: fmtTime(n.created_at), type: n.note_type, content: n.content })),
-        pendingToday: (apptMap.get(r.id) || []).map((a) => ({ time: fmtTime(a.scheduled_at), kind: a.kind }))
+        pendingToday: (apptMap.get(r.id) || []).map((a) => ({ time: fmtTime(a.scheduled_at), kind: a.kind,
+          ...(FEAT.reason ? { reason: a.reason || '' } : {}) })) // C. 방문 사유
       };
     }),
     memos: memoR.rows.map((r) => ({ time: fmtTime(r.created_at), content: r.content, author: memoAuthor(r.name, r.role) }))
   });
+}
+
+// ── B. 환자별 지시(오더) 채널 ───────────────────────────────
+// 지시→확인(acked)→수행(done) 3단계, 타임스탬프·작성자 역할 기록. 작성자는 취소 가능.
+async function apiCareOrderPost(req, res) {
+  const me = await requireRole(req, res, ['doctor', 'nurse']);
+  if (!me) return;
+  const body = await readJsonBody(req);
+  if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
+  const pid = parseId(body.patient_id);
+  const content = String(body.content || '').trim();
+  if (!pid || !content) return sendJson(res, 400, { error: '환자와 지시 내용을 입력하세요.' });
+  if (content.length > 500) return sendJson(res, 400, { error: '지시는 500자 이내로 입력하세요.' });
+  const db = getPool();
+  const p = await db.query(`SELECT id FROM patients WHERE id=$1`, [pid]);
+  if (!p.rows.length) return sendJson(res, 404, { error: '환자를 찾을 수 없습니다.' });
+  const r = await db.query(
+    `INSERT INTO care_orders (patient_id, author_id, author_role, content) VALUES ($1,$2,$3,$4) RETURNING id`,
+    [pid, me.id, me.role, content]);
+  sendJson(res, 201, { ok: true, id: r.rows[0].id });
+}
+
+// GET /api/care-orders?patient_id=&status= — 간호사는 병동 스코프 기본(?scope=all 전체)
+async function apiCareOrdersGet(req, res) {
+  const me = await requireRole(req, res, ['doctor', 'nurse']);
+  if (!me) return;
+  const db = getPool();
+  const query = url.parse(req.url, true).query;
+  const conds = [], params = [];
+  let pid = null;
+  if (query.patient_id !== undefined && String(query.patient_id) !== '') {
+    pid = parseId(query.patient_id);
+    if (!pid) return sendJson(res, 400, { error: '잘못된 patient_id' });
+    params.push(pid); conds.push(`o.patient_id=$${params.length}`);
+  }
+  const status = String(query.status || '');
+  if (status) {
+    if (!['open', 'acked', 'done', 'cancelled'].includes(status)) return sendJson(res, 400, { error: '잘못된 status' });
+    params.push(status); conds.push(`o.status=$${params.length}`);
+  }
+  let ward = null;
+  if (me.role === 'nurse' && String(query.scope || '') !== 'all' && !pid) {
+    ward = await nurseWard(db, me);
+    params.push(ward);
+    conds.push(`EXISTS (SELECT 1 FROM admissions ad
+                 WHERE ad.patient_id=o.patient_id AND ad.status='admitted' AND ad.ward=$${params.length})`);
+  }
+  const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+  const r = await db.query(
+    `SELECT o.id, o.patient_id, o.author_id, o.content, o.status, o.created_at, o.author_role,
+            o.acked_at, o.done_at,
+            p.name AS patient_name, ua.name AS author_name, uk.name AS acked_name, ud.name AS done_name,
+            (SELECT ad.room FROM admissions ad WHERE ad.patient_id=o.patient_id AND ad.status='admitted'
+              ORDER BY ad.admitted_at DESC LIMIT 1) AS room
+       FROM care_orders o
+       JOIN patients p ON p.id=o.patient_id
+       JOIN users ua ON ua.id=o.author_id
+       LEFT JOIN users uk ON uk.id=o.acked_by
+       LEFT JOIN users ud ON ud.id=o.done_by
+      ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT 100`, params);
+  const dt = (v) => v ? `${fmtDate(v)} ${fmtTime(v)}` : '';
+  sendJson(res, 200, {
+    ward,
+    rows: r.rows.map((o) => ({
+      id: o.id, patientId: o.patient_id, patient: o.patient_name, room: o.room || '',
+      content: o.content, status: o.status,
+      author: o.author_name, authorRole: o.author_role, mine: o.author_id === me.id,
+      createdAt: dt(o.created_at),
+      ackedAt: dt(o.acked_at), ackedBy: o.acked_name || '',
+      doneAt: dt(o.done_at), doneBy: o.done_name || ''
+    }))
+  });
+}
+
+// PATCH /api/care-orders/:id — nurse: open→acked→done 전이 / 작성자: 취소(done 전만)
+async function apiCareOrderPatch(req, res, id) {
+  const me = await requireRole(req, res, ['doctor', 'nurse']);
+  if (!me) return;
+  const body = await readJsonBody(req);
+  if (!body) return sendJson(res, 400, { error: '잘못된 요청' });
+  const status = String(body.status || '');
+  const db = getPool();
+  const r = await db.query(`SELECT id, author_id, status FROM care_orders WHERE id=$1`, [id]);
+  if (!r.rows.length) return sendJson(res, 404, { error: '지시를 찾을 수 없습니다.' });
+  const o = r.rows[0];
+  if (status === 'cancelled') {
+    if (o.author_id !== me.id) return sendJson(res, 403, { error: '작성자만 취소할 수 있습니다.' });
+    if (o.status === 'done' || o.status === 'cancelled')
+      return sendJson(res, 400, { error: '취소할 수 없는 상태입니다.' });
+    await db.query(`UPDATE care_orders SET status='cancelled' WHERE id=$1`, [id]);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (me.role !== 'nurse') return sendJson(res, 403, { error: '간호사만 확인·수행 처리할 수 있습니다.' });
+  if (status === 'acked') {
+    if (o.status !== 'open') return sendJson(res, 400, { error: '확인 처리할 수 없는 상태입니다.' });
+    await db.query(`UPDATE care_orders SET status='acked', acked_by=$2, acked_at=now() WHERE id=$1`, [id, me.id]);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (status === 'done') {
+    if (o.status !== 'acked') return sendJson(res, 400, { error: '확인(acked) 후에 수행 처리할 수 있습니다.' });
+    await db.query(`UPDATE care_orders SET status='done', done_by=$2, done_at=now() WHERE id=$1`, [id, me.id]);
+    return sendJson(res, 200, { ok: true });
+  }
+  sendJson(res, 400, { error: '잘못된 상태 값' });
 }
 
 // §1-11 POST /api/me/password — 전 역할 비밀번호 변경
@@ -2029,7 +2401,30 @@ async function handle(req, res) {
   if (pathname === '/api/stats/doctor' && req.method === 'GET')  return apiStatsDoctor(req, res);
   if (pathname === '/api/stats/nurse'  && req.method === 'GET')  return apiStatsNurse(req, res);
   if (pathname === '/api/handover'     && req.method === 'GET')  return apiHandover(req, res);
+  // B. 지시(오더) 채널
+  if (pathname === '/api/care-orders') {
+    if (req.method === 'POST') return apiCareOrderPost(req, res);
+    if (req.method === 'GET')  return apiCareOrdersGet(req, res);
+    return sendJson(res, 405, { error: 'Method Not Allowed' });
+  }
+  const com = pathname.match(/^\/api\/care-orders\/(\d+)$/);
+  if (com) {
+    if (req.method !== 'PATCH') return sendJson(res, 405, { error: 'Method Not Allowed' });
+    const coId = parseId(com[1]);
+    if (!coId) return sendJson(res, 404, { error: 'not found' });
+    return apiCareOrderPatch(req, res, coId);
+  }
+  // C. 환자용 요약: PATCH /api/encounters/:id
+  const em = pathname.match(/^\/api\/encounters\/(\d+)$/);
+  if (em) {
+    if (req.method !== 'PATCH') return sendJson(res, 405, { error: 'Method Not Allowed' });
+    const encId = parseId(em[1]);
+    if (!encId) return sendJson(res, 404, { error: 'not found' });
+    return apiEncounterPatch(req, res, encId);
+  }
   if (pathname === '/api/me/password'  && req.method === 'POST') return apiMePassword(req, res);
+  if (pathname === '/api/patients/me' && req.method === 'PATCH') return apiPatientMePatch(req, res); // E⑦
+  if (pathname === '/api/bills/checkout-all' && req.method === 'POST') return apiBillCheckoutAll(req, res); // E⑨
   // 토스 결제: POST /api/bills/:id/checkout — 아래 PATCH 정규식보다 먼저 매칭
   const cm = pathname.match(/^\/api\/bills\/(\d+)\/checkout$/);
   if (cm) {

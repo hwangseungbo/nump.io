@@ -97,7 +97,8 @@
       row.appendChild(el('span', 'h', r.time || ''));
       var label = (r.kind || '') + (SCHED_ST_LABEL[r.status] ? ' · ' + SCHED_ST_LABEL[r.status] : '');
       row.appendChild(el('span', 'l', label));
-      var rm = el('span', 'rm', (r.patientName || '') + (r.room ? ' · ' + r.room : ''));
+      var rm = el('span', 'rm', (r.patientName || '') + (r.room ? ' · ' + r.room : '')
+        + (r.doctor ? ' · ' + r.doctor : '')); // E⑫. 담당의
       rm.style.cssText = 'margin-left:auto;color:var(--muted);font-size:12px';
       row.appendChild(rm);
       card.appendChild(row);
@@ -324,6 +325,7 @@
     renderPatients(d);
     renderTodayLabel(d.todayLabel);
     renderTodaySchedule(d.todaySchedule);
+    renderCareOrdersCard(); // B. 지시 사항 카드 (병동 미완료)
     renderDocRequests(d.docRequests);
     renderSafety(d.safety);
     renderAlerts(d.alerts, d.alertCount);
@@ -569,6 +571,26 @@
     if (p.dx) head.appendChild(el('div', 'pd-meta', '진단: ' + p.dx));
     if (p.rx) head.appendChild(el('div', 'pd-meta', '처방: ' + p.rx));
     if (p.memo) head.appendChild(el('div', 'pd-memo', p.memo));
+    // A. 알레르기 배지 — 필드 부재(컬럼 미적용/구서버)면 표시 생략, 값은 el()=textContent
+    if (p.allergies !== undefined) {
+      var alWrap = el('div');
+      alWrap.style.cssText = 'margin:8px 0 2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;';
+      if (Array.isArray(p.allergies) && p.allergies.length) {
+        var alLab = el('span', null, '알레르기');
+        alLab.style.cssText = 'font-size:11.5px;font-weight:800;color:#c0392b;';
+        alWrap.appendChild(alLab);
+        p.allergies.forEach(function (a) {
+          var ab = el('span', null, a);
+          ab.style.cssText = 'font-size:11px;font-weight:700;color:#c0392b;background:#fdeaea;border:1px solid #f5c2c2;border-radius:999px;padding:3px 10px;';
+          alWrap.appendChild(ab);
+        });
+      } else {
+        var alNone = el('span', null, '알레르기 정보 없음 — 확인 필요');
+        alNone.style.cssText = 'font-size:11px;font-weight:600;color:var(--muted,#888);background:var(--page,#f6f6fb);border:1px solid var(--line-2,#eee);border-radius:999px;padding:3px 10px;';
+        alWrap.appendChild(alNone);
+      }
+      head.appendChild(alWrap);
+    }
     box.appendChild(head);
 
     var emr = p.emr || {};
@@ -578,13 +600,19 @@
       (emr.prescriptions || []).map(function (r) {
         return [r.drug, r.dosage, el('span', 'st ' + (r.active ? 'now' : 'cancel'), r.active ? '복용 중' : '종료')];
       })));
-    box.appendChild(emrSection('바이탈', ['측정일', '혈압', '혈당', '체중', 'BMI'],
+    // E⑩. 체온·맥박·SpO2 컬럼 — 확장 필드가 있을 때만 (구서버/컬럼 미적용 폴백)
+    var vitExt = (emr.vitals || []).length && emr.vitals[0].temp !== undefined;
+    box.appendChild(emrSection('바이탈',
+      vitExt ? ['측정일', '혈압', '혈당', '체온', '맥박', 'SpO2', '체중', 'BMI']
+             : ['측정일', '혈압', '혈당', '체중', 'BMI'],
       (emr.vitals || []).map(function (v) {
-        return [v.date,
+        var base = [v.date,
           (v.systolic != null ? v.systolic : '-') + ' / ' + (v.diastolic != null ? v.diastolic : '-'),
-          v.glucose != null ? v.glucose : '-',
-          v.weight != null ? v.weight + 'kg' : '-',
-          v.bmi != null ? v.bmi : '-'];
+          v.glucose != null ? v.glucose : '-'];
+        if (vitExt) base.push(v.temp != null ? v.temp + '℃' : '-',
+          v.pulse != null ? v.pulse : '-', v.spo2 != null ? v.spo2 + '%' : '-');
+        base.push(v.weight != null ? v.weight + 'kg' : '-', v.bmi != null ? v.bmi : '-');
+        return base;
       })));
     box.appendChild(emrSection('검사', ['검사일', '항목', '결과', '참고치'],
       (emr.labs || []).map(function (l) {
@@ -615,15 +643,29 @@
     host.appendChild(formCard);
 
     var listCard = el('div', 'card');
+    // E⑪. 병동 스코프 기본 + '병원 전체 보기' 토글 (일정 뷰와 일관)
+    var admScopeAll = false;
+    var admBar = el('div', 'vw-toolbar');
+    var admScopeBtn = vbtn('병원 전체 보기', 'ghost sm');
+    var admScopeLab = el('span', 'vw-datelabel', '');
+    admBar.appendChild(admScopeBtn);
+    admBar.appendChild(admScopeLab);
+    listCard.appendChild(admBar);
+    admScopeBtn.addEventListener('click', function () {
+      admScopeAll = !admScopeAll;
+      admScopeBtn.textContent = admScopeAll ? '내 병동만 보기' : '병원 전체 보기';
+      load();
+    });
     var box = el('div');
     listCard.appendChild(box);
     host.appendChild(listCard);
 
     function load() {
       box.innerHTML = '';
-      fetchJson('/api/admissions').then(function (d) {
+      fetchJson('/api/admissions' + (admScopeAll ? '?scope=all' : '')).then(function (d) {
+        admScopeLab.textContent = admScopeAll ? '병원 전체' : ((d.ward || '내 병동') + ' 기준');
         var rows = Array.isArray(d.rows) ? d.rows : [];
-        if (!rows.length) { box.appendChild(el('div', 'empty', '입원 내역이 없습니다')); return; }
+        if (!rows.length) { box.appendChild(el('div', 'empty', admScopeAll ? '입원 내역이 없습니다' : '내 병동 입원 내역이 없습니다')); return; }
         var t = makeTable(['병실', '병동', '환자', '성별/나이', '입원일', '퇴원 예정', '상태', '']);
         rows.forEach(function (r) {
           var tr = document.createElement('tr');
@@ -710,14 +752,21 @@
           : (d.ward ? d.ward + ' 일정 (입원 환자, 병실 포함)' : '내 병동 입원 환자 일정 (병실 포함)');
         var rows = Array.isArray(d.rows) ? d.rows : [];
         if (!rows.length) { box.appendChild(el('div', 'empty', scopeAll ? '해당 날짜에 일정이 없습니다' : '해당 날짜에 내 병동 일정이 없습니다')); return; }
-        var t = makeTable(['시간', '환자', '성별/나이', '병실', '구분', '상태']);
+        // C. 사유 컬럼 — reason 필드가 있을 때만
+        var hasReason = rows.length && rows[0].reason !== undefined;
+        var cols = ['시간', '환자', '성별/나이', '병실', '담당의', '구분'];
+        if (hasReason) cols.push('사유');
+        cols.push('상태');
+        var t = makeTable(cols);
         rows.forEach(function (r) {
           var tr = document.createElement('tr');
           tr.appendChild(td(r.time));
           tr.appendChild(td(r.name));
           tr.appendChild(td((r.sex || '') + '/' + (r.age != null ? r.age : '')));
           tr.appendChild(td(r.room || '-'));
+          tr.appendChild(td(r.doctor || '-')); // E⑫. 담당의
           tr.appendChild(td(r.kind));
+          if (hasReason) tr.appendChild(td(r.reason || '-'));
           tr.appendChild(td(stBadge(r.status, r.statusLabel)));
           t.tbody.appendChild(tr);
         });
@@ -735,6 +784,64 @@
   function gotoView(hash) {
     if (location.hash === hash) window.dispatchEvent(new Event('hashchange'));
     else location.hash = hash;
+  }
+
+  /* ---------- B. 지시(오더) — 병동 미완료 목록 + [확인]/[수행] ---------- */
+  // 지시자·시각·역할 표시, open→acked→done 전이. 값은 전부 textContent(el/td) — stored-XSS 방지.
+  function careOrderList(host, onChange) {
+    host.innerHTML = '';
+    fetchJson('/api/care-orders').then(function (d) {
+      var rows = (Array.isArray(d.rows) ? d.rows : []).filter(function (o) {
+        return o.status === 'open' || o.status === 'acked';
+      });
+      if (!rows.length) { host.appendChild(el('div', 'empty', '미완료 지시가 없습니다')); return; }
+      rows.forEach(function (o) {
+        var row = el('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line-2,#eee);font-size:12.5px;flex-wrap:wrap;';
+        row.appendChild(el('span', 'st ' + (o.status === 'open' ? 'wait' : 'now'), o.status === 'open' ? '대기' : '확인됨'));
+        var txt = el('span', null, (o.room ? o.room + ' ' : '') + (o.patient || '') + ' — ' + (o.content || ''));
+        txt.style.cssText = 'flex:1;min-width:180px;';
+        row.appendChild(txt);
+        var meta = el('span', 'muted',
+          (o.authorRole === 'doctor' ? '의사 ' : '간호사 ') + (o.author || '') + ' · ' + (o.createdAt || ''));
+        meta.style.fontSize = '11px';
+        row.appendChild(meta);
+        var btn = vbtn(o.status === 'open' ? '확인' : '수행 완료', 'sm');
+        btn.addEventListener('click', function () {
+          btn.disabled = true;
+          fetchJson('/api/care-orders/' + o.id, jsonOpts('PATCH', { status: o.status === 'open' ? 'acked' : 'done' }))
+            .then(function () {
+              toast(o.status === 'open' ? '지시를 확인했습니다' : '수행 완료로 처리했습니다');
+              if (onChange) onChange();
+            })
+            .catch(function (e2) { toast('처리 실패: ' + e2.message); btn.disabled = false; });
+        });
+        row.appendChild(btn);
+        host.appendChild(row);
+      });
+    }).catch(function () { host.appendChild(el('div', 'empty', '지시를 불러올 수 없습니다')); });
+  }
+
+  // 대시보드 '지시 사항' 카드 — 오늘 일정 카드 블록 아래에 동적 삽입 (병동 스코프 기본)
+  function renderCareOrdersCard() {
+    var lbl = $('#todayLabel');
+    var anchor = lbl && lbl.parentNode && lbl.parentNode.parentNode; // .cards-2 블록
+    if (!anchor || !anchor.parentNode) return;
+    var card = $('#careOrdersCard');
+    if (!card) {
+      card = el('div', 'block card');
+      card.id = 'careOrdersCard';
+      var head = el('div', 'sec-t');
+      head.appendChild(el('h2', null, '지시 사항'));
+      var sub = el('span', 'muted', '내 병동 미완료');
+      head.appendChild(sub);
+      card.appendChild(head);
+      var box = el('div');
+      box.id = 'careOrdersBox';
+      card.appendChild(box);
+      anchor.parentNode.insertBefore(card, anchor.nextSibling);
+    }
+    careOrderList($('#careOrdersBox'), renderCareOrdersCard);
   }
 
   /* ---------- M3: 바이탈 입력 모달 (인계 보드) ---------- */
@@ -756,7 +863,13 @@
     var iSys = numInput('수축기 혈압 (60~260)');
     var iDia = numInput('이완기 혈압 (30~160)');
     var iGlu = numInput('혈당 (선택, 30~600)');
+    // E⑩. 체온·맥박·SpO2 (선택 — 컬럼 미적용 서버면 저장 시 무시됨)
+    var iTemp = numInput('체온 ℃ (선택, 30.0~45.0)');
+    iTemp.step = '0.1';
+    var iPulse = numInput('맥박 (선택, 20~250)');
+    var iSpo2 = numInput('SpO2 % (선택, 50~100)');
     card.appendChild(iSys); card.appendChild(iDia); card.appendChild(iGlu);
+    card.appendChild(iTemp); card.appendChild(iPulse); card.appendChild(iSpo2);
     var err = el('div');
     err.style.cssText = 'display:none;font-size:12px;color:#c0392b;margin-bottom:8px;';
     card.appendChild(err);
@@ -782,6 +895,21 @@
         var glu = parseInt(iGlu.value, 10);
         if (!(glu >= 30 && glu <= 600)) { showErr('혈당은 30~600 사이 정수로 입력하세요.'); return; }
         body.glucose = glu;
+      }
+      if (iTemp.value.trim() !== '') { // E⑩
+        var tp = parseFloat(iTemp.value);
+        if (!(tp >= 30 && tp <= 45)) { showErr('체온은 30.0~45.0 사이로 입력하세요.'); return; }
+        body.temp_c = tp;
+      }
+      if (iPulse.value.trim() !== '') {
+        var pl = parseInt(iPulse.value, 10);
+        if (!(pl >= 20 && pl <= 250)) { showErr('맥박은 20~250 사이 정수로 입력하세요.'); return; }
+        body.pulse = pl;
+      }
+      if (iSpo2.value.trim() !== '') {
+        var sp = parseInt(iSpo2.value, 10);
+        if (!(sp >= 50 && sp <= 100)) { showErr('SpO2는 50~100 사이 정수로 입력하세요.'); return; }
+        body.spo2 = sp;
       }
       save.disabled = true;
       fetchJson('/api/vitals', jsonOpts('POST', body)).then(function () {
@@ -819,6 +947,16 @@
     var memoCard = el('div', 'card');
     memoCard.style.marginTop = '16px';
     host.appendChild(memoCard);
+    // B. 인계 보드에도 병동 미완료 지시 목록
+    var orderCard = el('div', 'card');
+    orderCard.style.marginTop = '16px';
+    var ocHead = el('div', 'sec-t');
+    ocHead.appendChild(el('h2', null, '미완료 지시'));
+    ocHead.appendChild(el('span', 'muted', '내 병동 · 지시→확인→수행'));
+    orderCard.appendChild(ocHead);
+    var orderBox = el('div');
+    orderCard.appendChild(orderBox);
+    host.appendChild(orderCard);
 
     function vitalText(v) {
       if (!v) return '-';
@@ -840,6 +978,7 @@
     function load() {
       box.innerHTML = '';
       memoCard.innerHTML = '';
+      careOrderList(orderBox, load); // B. 미완료 지시 (별도 API — 보드와 함께 갱신)
       fetchJson('/api/handover' + (cur ? '?shift=' + cur : '')).then(function (d) {
         cur = d.shift;
         SHIFTS.forEach(function (s) { // 활성 근무조는 솔리드, 나머지는 ghost
@@ -857,14 +996,21 @@
           pats.forEach(function (p) {
             var tr = document.createElement('tr');
             tr.appendChild(td(p.room || '-'));
-            tr.appendChild(td(p.name + ' (' + (p.sex || '') + '/' + (p.age != null ? p.age : '') + ')'));
+            var hoName = td(p.name + ' (' + (p.sex || '') + '/' + (p.age != null ? p.age : '') + ')');
+            // A. 인계 보드에도 알레르기 소표시 (textContent)
+            if (Array.isArray(p.allergies) && p.allergies.length) {
+              var hoAl = el('div', null, '⚠ 알레르기: ' + p.allergies.join(', '));
+              hoAl.style.cssText = 'font-size:11px;font-weight:700;color:#c0392b;margin-top:2px;';
+              hoName.appendChild(hoAl);
+            }
+            tr.appendChild(hoName);
             tr.appendChild(td(p.dx || '-'));
             tr.appendChild(td(vitalText(p.lastVital)));
             tr.appendChild(td(listCell(p.notes, function (n) {
               return n.time + ' [' + n.type + '] ' + n.content;
             }, '기록 없음')));
             tr.appendChild(td(listCell(p.pendingToday, function (a) {
-              return a.time + ' ' + a.kind;
+              return a.time + ' ' + a.kind + (a.reason ? ' — ' + a.reason : ''); // C. 방문 사유
             }, '-')));
             // M3: 바이탈 입력 — 저장 성공 시 보드 재조회 (patientId 부재(구서버) 시 버튼 생략)
             var act = document.createElement('td');

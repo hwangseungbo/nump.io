@@ -9,6 +9,10 @@
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
 <meta name="theme-color" content="#2e7d46" />
+<meta name="description" content="Basil Nexus — 온프레미스 의료 AI 통합 플랫폼. 의사·간호사·환자 대시보드와 AI 상담, EMR 데모를 제공합니다." />
+<meta property="og:title" content="Basil Nexus · Smart Clinic HERB" />
+<meta property="og:description" content="온프레미스 의료 AI 통합 플랫폼 — 역할별 대시보드·AI 상담·EMR 데모" />
+<meta property="og:image" content="assets/logo.png" />
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
@@ -323,15 +327,15 @@
   <header class="topbar">
     <div class="brand"><img src="assets/logo.png" alt="Basil Nexus · Smart Clinic HERB" /></div>
     <nav class="topnav">
-      <div class="nav-item">
+      <div class="nav-item" id="navAlarm" role="button" tabindex="0">
         <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
         <span>알림</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item" id="navHelp" role="button" tabindex="0">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 2.2-2.6 3.8"/><circle cx="12" cy="17.2" r=".6" fill="#46624f" stroke="none"/></svg>
         <span>도움말</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item" id="navSettings" role="button" tabindex="0">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9.3a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>
         <span>설정</span>
       </div>
@@ -405,7 +409,7 @@
       <h3>SageFM</h3><p>의료 파운데이션 모델</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
-    <div class="svc-card" data-title="MintNote" data-sub="음성 EMR" data-video="citpZQPXaOc" data-service="http://165.132.220.115:5098">
+    <div class="svc-card" data-title="MintNote" data-sub="음성 EMR" data-video="citpZQPXaOc" data-service="">
       <img class="ico" loading="lazy" decoding="async" src="assets/svc/mintnote.png" alt="" />
       <h3>MintNote</h3><p>음성 EMR</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
@@ -425,7 +429,7 @@
       <h3>LavenderRx</h3><p>약물 상호작용</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
     </div>
-    <div class="svc-card" data-title="Chamomile24" data-sub="24/7 환자 케어" data-video="" data-service="https://chat.nump.io">
+    <div class="svc-card" data-title="Chamomile24" data-sub="24/7 환자 케어" data-video="" data-service="">
       <img class="ico" loading="lazy" decoding="async" src="assets/svc/chamomile.png" alt="" />
       <h3>Chamomile24</h3><p>24/7 환자 케어</p>
       <span class="more">데모 영상 <span class="arr">▶</span></span>
@@ -471,10 +475,10 @@
   <!-- ======= BOTTOM PANELS ======= -->
   <section class="panels">
 
-    <!-- 최근 환자 -->
-    <div class="panel">
+    <!-- 최근 환자 — 의료진 로그인 시에만 실데이터 표시 (E③) -->
+    <div class="panel" id="recentPatientsPanel" style="display:none">
       <h2>최근 환자</h2>
-      <div class="list">
+      <div class="list" id="recentPatientsList">
         <div class="p-row">
           <img class="pa" loading="lazy" decoding="async" src="assets/thumb/doctor.png" alt="" />
           <div><div class="pname">김민수 <span style="color:var(--muted-2);font-weight:500;font-size:11.5px">(M/45)</span></div></div>
@@ -491,7 +495,7 @@
           <div class="pright"><div class="pdate">2024-05-27</div><span class="pdept">정형외과</span></div>
         </div>
       </div>
-      <div class="ghost-btn">전체 환자 보기 <span class="arr">→</span></div>
+      <div class="ghost-btn" id="btnAllPatients" role="button" tabindex="0">전체 환자 보기 <span class="arr">→</span></div>
     </div>
 
     <!-- 최근 활동 -->
@@ -523,7 +527,7 @@
           <div class="atime">45분 전</div>
         </div>
       </div>
-      <div class="ghost-btn">전체 활동 보기 <span class="arr">→</span></div>
+      <div class="ghost-btn" id="btnAllActivity" role="button" tabindex="0">전체 활동 보기 <span class="arr">→</span></div>
     </div>
 
     <!-- 공지사항 -->
@@ -532,12 +536,12 @@
       <div class="list">
         <div class="n-row">
           <span class="dot"></span>
-          <span class="ntext">시스템 점검 안내 (6/2 02:00~04:00)</span>
+          <span class="ntext">시스템 점검 안내 (9/10 02:00~04:00)</span>
           <span class="new">NEW</span>
         </div>
         <div class="n-row">
           <span class="dot"></span>
-          <span class="ntext">SageFM 모델 업데이트 안내 (v2.1)</span>
+          <span class="ntext">SageFM 모델 업데이트 안내 (v2.2)</span>
         </div>
         <div class="n-row">
           <span class="dot"></span>
@@ -545,13 +549,13 @@
           <span class="new">NEW</span>
         </div>
       </div>
-      <div class="ghost-btn">전체 공지 보기 <span class="arr">→</span></div>
+      <div class="ghost-btn" id="btnAllNotice" role="button" tabindex="0">전체 공지 보기 <span class="arr">→</span></div>
     </div>
   </section>
 
   <!-- ======= FOOTER ======= -->
   <footer class="foot">
-    <div>© 2024 NUMP Inc. All rights reserved.</div>
+    <div>© 2026 NUMP Inc. All rights reserved.</div>
     <div class="center">
       <svg viewBox="0 0 24 24" fill="none"><path d="M5 19c0-7 5-12 14-13-1 9-6 14-13 14-1 0-1-1-1-1Z" fill="#43a05a"/><path d="M6 18C9 13 12 10 17 8" stroke="#fff" stroke-width="1.4"/></svg>
       NUMP Smart Clinic HERB
@@ -800,7 +804,8 @@
         frame.classList.add('empty');
         frame.innerHTML='<div class="vid-empty">데모 영상을 준비 중입니다.</div>';
       }
-      footEl.innerHTML = service ? '<a class="vid-service" href="'+service+'" target="_blank" rel="noopener">서비스 바로가기 ↗</a>' : '';
+      footEl.innerHTML = service ? '<a class="vid-service" href="'+service+'" target="_blank" rel="noopener">서비스 바로가기 ↗</a>'
+        : '<span class="vid-service" style="opacity:.65;cursor:default">서비스 준비 중</span>'; // E⑥ 접속 불가 서비스
       modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
       document.body.style.overflow='hidden';
     }
@@ -816,6 +821,96 @@
     });
     modal.querySelectorAll('[data-close]').forEach(function(el){ el.addEventListener('click', close); });
     document.addEventListener('keydown', function(e){ if(e.key==='Escape' && modal.classList.contains('open')) close(); });
+  })();
+</script>
+<script>
+  // ── E①②③ 퀵윈: 상단 아이콘·패널 버튼 동작 연결 + 최근 환자 실데이터 ──
+  (function(){
+    function toast(msg){
+      var t=document.createElement('div');
+      t.textContent=msg; // 정적/서버 유래 문자열 모두 textContent
+      t.style.cssText='position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:#1f3b2d;color:#fff;'
+        +'font-size:13px;font-weight:600;padding:11px 18px;border-radius:11px;z-index:4000;box-shadow:0 10px 26px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;';
+      document.body.appendChild(t);
+      requestAnimationFrame(function(){ t.style.opacity='1'; });
+      setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); },250); },2400);
+    }
+    function on(id,fn){ var e=document.getElementById(id); if(!e) return;
+      e.style.cursor='pointer';
+      e.addEventListener('click',fn);
+      e.addEventListener('keydown',function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); fn(); } });
+    }
+    var ROLE_HOME={doctor:'platform/doctor/',nurse:'platform/nurse/',patient:'platform/patient/',admin:'platform/admin/'};
+    function goDash(hash){
+      fetch('/api/me').then(function(r){ return r.ok?r.json():null; }).then(function(me){
+        if(me&&ROLE_HOME[me.role]) location.href=ROLE_HOME[me.role]+(hash||'');
+        else toast('로그인 후 이용할 수 있습니다');
+      }).catch(function(){ toast('로그인 후 이용할 수 있습니다'); });
+    }
+    // ① 알림: 로그인 시 역할 대시보드로 / 설정: 준비 중
+    on('navAlarm', function(){ goDash(''); });
+    on('navSettings', function(){ toast('설정은 준비 중입니다'); });
+    // ① 도움말: 간단 FAQ 모달 (정적 문자열)
+    on('navHelp', function(){
+      var ov=document.createElement('div');
+      ov.style.cssText='position:fixed;inset:0;background:rgba(15,30,20,.5);z-index:4000;display:flex;align-items:center;justify-content:center;padding:20px;';
+      var card=document.createElement('div');
+      card.style.cssText='background:#fff;border-radius:18px;max-width:460px;width:100%;max-height:80vh;overflow:auto;padding:26px 24px;';
+      var FAQ=[
+        ['데모 계정은 어떻게 로그인하나요?','상단 "통합 대시보드 열기"에서 역할별 데모 계정(doctor1/nurse1/patient1, 비밀번호는 역할명+1234)으로 로그인할 수 있습니다.'],
+        ['진료 예약은 어디서 하나요?','환자 대시보드 → 진료 예약에서 신청·변경·취소할 수 있습니다.'],
+        ['진료비 결제는 실제로 청구되나요?','아니요. 테스트 결제 환경이라 실제 청구되지 않습니다.'],
+        ['AI 상담 답변은 진료인가요?','AI가 자동 생성한 참고 정보로, 실제 의료진 상담을 대신하지 않습니다.'],
+        ['서류 발급은 어떻게 하나요?','환자 대시보드 → 서류 발급에서 신청하면 담당의 승인 후 발급됩니다.']
+      ];
+      var h=document.createElement('div'); h.textContent='자주 묻는 질문';
+      h.style.cssText='font-size:17px;font-weight:800;color:#1f3b2d;margin-bottom:14px;';
+      card.appendChild(h);
+      FAQ.forEach(function(qa){
+        var q=document.createElement('div'); q.textContent='Q. '+qa[0];
+        q.style.cssText='font-size:13.5px;font-weight:700;color:#1f3b2d;margin:12px 0 4px;';
+        var a=document.createElement('div'); a.textContent=qa[1];
+        a.style.cssText='font-size:13px;color:#46624f;line-height:1.55;';
+        card.appendChild(q); card.appendChild(a);
+      });
+      var x=document.createElement('button'); x.textContent='닫기'; x.type='button';
+      x.style.cssText='margin-top:18px;width:100%;border:none;background:#2e7d46;color:#fff;font:inherit;font-size:13.5px;font-weight:700;padding:11px;border-radius:11px;cursor:pointer;';
+      card.appendChild(x);
+      ov.appendChild(card); document.body.appendChild(ov);
+      function close(){ ov.remove(); }
+      x.addEventListener('click',close);
+      ov.addEventListener('click',function(e){ if(e.target===ov) close(); });
+    });
+    // ② 패널 버튼
+    on('btnAllPatients', function(){ goDash('#view-search'); });
+    on('btnAllActivity', function(){ toast('활동 로그는 준비 중입니다'); });
+    on('btnAllNotice',  function(){ toast('공지 목록은 준비 중입니다'); });
+    // ③ 최근 환자 — 의료진 로그인 시에만 실데이터(최근 내원순)
+    fetch('/api/me').then(function(r){ return r.ok?r.json():null; }).then(function(me){
+      if(!me||['doctor','nurse','admin'].indexOf(me.role)===-1) return;
+      return fetch('/api/patients').then(function(r){ return r.ok?r.json():null; }).then(function(d){
+        var panel=document.getElementById('recentPatientsPanel');
+        var list=document.getElementById('recentPatientsList');
+        if(!d||!Array.isArray(d.results)||!d.results.length||!panel||!list) return;
+        list.innerHTML='';
+        d.results.slice(0,3).forEach(function(pt){
+          var row=document.createElement('div'); row.className='p-row';
+          var img=document.createElement('img'); img.className='pa'; img.src='assets/thumb/patient.png'; img.alt='';
+          var mid=document.createElement('div');
+          var nm=document.createElement('div'); nm.className='pname';
+          nm.textContent=(pt.name||'')+' ('+(pt.sex||'')+'/'+(pt.age!=null?pt.age:'')+')'; // 전부 textContent
+          mid.appendChild(nm);
+          var right=document.createElement('div'); right.className='pright';
+          var dt=document.createElement('div'); dt.className='pdate'; dt.textContent=pt.lastVisit||'-';
+          var dp=document.createElement('span'); dp.className='pdept';
+          dp.textContent=(pt.dx||'').split(',')[0]||'-';
+          right.appendChild(dt); right.appendChild(dp);
+          row.appendChild(img); row.appendChild(mid); row.appendChild(right);
+          list.appendChild(row);
+        });
+        panel.style.display='';
+      });
+    }).catch(function(){});
   })();
 </script>
 </body>
