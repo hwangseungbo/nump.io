@@ -1629,7 +1629,11 @@
     initBell();
     // M1: '새 환자 등록' CTA 제거됨 — 관련 토스트 핸들러도 정리
     var detailBtn = document.querySelector('#recentCard .pt-head .btn-ghost');
-    if (detailBtn) detailBtn.addEventListener('click', function () { location.hash = '#view-search'; });
+    if (detailBtn) detailBtn.addEventListener('click', function () {
+      // 카드에 떠 있는 환자의 EMR 상세를 검색 뷰에서 바로 펼침 (환자 미로드 시 검색 뷰만 이동)
+      if (currentPatient && currentPatient.id) gotoEmr(currentPatient.id);
+      else location.hash = '#view-search';
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { initP5(); initRailButtons(); });
