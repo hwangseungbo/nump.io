@@ -315,6 +315,52 @@
     });
   }
 
+  /* ---------- 서류-진료 연결: 내 담당 신청 목록 (docReqCard 확장) ----------
+     FEAT-on 서버에서만 렌더 — 응답 행의 assignee 필드 존재로 판정 (FEAT-off/구서버는 기존 집계 카드 유지) */
+  function loadMyDocRequests() {
+    getJson('/api/documents?status=requested&assignee=me').then(function (d) {
+      var rows = (d && d.rows) || [];
+      if (!rows.length || rows[0].assignee === undefined) return;
+      var card = document.getElementById('docReqCard');
+      if (!card) return;
+      var box = document.getElementById('myDocReqBox');
+      if (!box) {
+        var st = h('div', 'sub-t', '내 담당 신청');
+        st.style.marginTop = '12px';
+        card.appendChild(st);
+        box = h('div', null);
+        box.id = 'myDocReqBox';
+        card.appendChild(box);
+      }
+      box.innerHTML = '';
+      rows.slice(0, 5).forEach(function (r) {
+        var row = h('div', null);
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-2);font-size:12.5px;flex-wrap:wrap;';
+        var txt = h('span', null, (r.patient || '') + ' · ' + (r.type || '')
+          + (r.encounter ? ' — 대상 진료 ' + r.encounter.date + ' ' + (r.encounter.department || '') : ''));
+        txt.style.cssText = 'flex:1;min-width:180px;';
+        row.appendChild(txt);
+        var ok = ghostBtn('발급');
+        var no = ghostBtn('반려');
+        function act(stv) {
+          ok.disabled = no.disabled = true;
+          fetch('/api/documents/' + r.id, { method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: stv })
+          }).then(function (r2) {
+            if (!r2.ok) throw new Error('HTTP ' + r2.status);
+            toast(stv === 'issued' ? '발급 처리되었습니다' : '반려 처리되었습니다');
+            loadMyDocRequests();
+          }).catch(function () { toast('처리에 실패했습니다'); ok.disabled = no.disabled = false; });
+        }
+        ok.addEventListener('click', function () { act('issued'); });
+        no.addEventListener('click', function () { act('rejected'); });
+        row.appendChild(ok);
+        row.appendChild(no);
+        box.appendChild(row);
+      });
+    }).catch(function () { /* 실패 시 기존 집계 카드만 유지 */ });
+  }
+
   /* ---------- M1: 간호 메모 / 전달 카드 (우측 레일) ---------- */
   function loadNurseMemos() {
     fetch('/api/memos?limit=5').then(function (r) {
@@ -377,6 +423,7 @@
     });
 
     loadNurseMemos(); // M1: 간호 메모 카드 (실패 시 미표시)
+    loadMyDocRequests(); // 서류-진료 연결: 내 담당 신청 (FEAT-on에서만 표시)
 
     // 시스템 상태 (별도 호출, 실패 시 정적 유지)
     fetch('/api/health').then(function (r) {

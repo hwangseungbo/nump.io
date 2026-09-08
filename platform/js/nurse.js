@@ -1235,15 +1235,30 @@
 
     function renderRows(rows, withActions, total) {
       if (!rows.length) { box.appendChild(el('div', 'empty', '해당 서류 요청이 없습니다')); return; }
-      var cols = ['환자', '서류 유형', '신청일', '상태'];
+      // 서류-진료 연결: assignee 필드가 있을 때만 담당의 컬럼·발급 권한 표시 (구서버 폴백)
+      var hasLink = rows[0].assignee !== undefined;
+      var cols = hasLink ? ['환자', '서류 유형', '담당의', '신청일', '상태'] : ['환자', '서류 유형', '신청일', '상태'];
       if (withActions) cols.push('');
       var t = makeTable(cols);
       rows.forEach(function (r) {
         var tr = document.createElement('tr');
         tr.appendChild(td(r.patient));
         tr.appendChild(td(r.type));
+        if (hasLink) tr.appendChild(td(r.assignee
+          ? (r.assignee.name + ' 의사' + (r.assignee.department ? '(' + r.assignee.department + ')' : '')) : '-'));
         tr.appendChild(td(r.date));
         tr.appendChild(td(stBadge(r.status, r.statusLabel)));
+        // 진단서·소견서는 담당의 발급 대상 — 간호사 처리 버튼 비활성 (FEAT 적용 시)
+        if (withActions && hasLink && (r.type === '진단서' || r.type === '소견서')) {
+          var act2 = document.createElement('td');
+          act2.className = 'cell-act';
+          var lock = el('span', 'muted', '담당의 발급 대상');
+          lock.style.fontSize = '11.5px';
+          act2.appendChild(lock);
+          tr.appendChild(act2);
+          t.tbody.appendChild(tr);
+          return;
+        }
         if (withActions) {
           var act = document.createElement('td');
           act.className = 'cell-act';

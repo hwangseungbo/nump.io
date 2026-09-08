@@ -36,26 +36,29 @@ function getPool() {
 // ── 신규 컬럼 존재 감지 (페르소나 점검 마이그레이션) ────────
 // patients/appointments/encounters/vitals는 postgres 소유라 관리자 적용 전일 수 있음 →
 // 기동 시 1회 감지해, 컬럼이 없으면 해당 기능만 비활성(기존 동작 유지). 적용 후 재시작하면 자동 활성.
-const FEAT = { allergies: false, reason: false, patientSummary: false, vitalsExt: false, proposed: false };
+const FEAT = { allergies: false, reason: false, patientSummary: false, vitalsExt: false, proposed: false, docLink: false };
 (async function detectFeatureColumns() {
   try {
     const r = await getPool().query(
       `SELECT table_name, column_name FROM information_schema.columns
         WHERE (table_name, column_name) IN
               (('patients','allergies'), ('appointments','reason'),
-               ('encounters','patient_summary'), ('vitals','temp_c'))`);
+               ('encounters','patient_summary'), ('vitals','temp_c'),
+               ('documents','encounter_id'))`);
     r.rows.forEach((x) => {
       if (x.column_name === 'allergies') FEAT.allergies = true;
       if (x.column_name === 'reason') FEAT.reason = true;
       if (x.column_name === 'patient_summary') FEAT.patientSummary = true;
       if (x.column_name === 'temp_c') FEAT.vitalsExt = true;
+      if (x.column_name === 'encounter_id' && x.table_name === 'documents') FEAT.docLink = true; // 서류-진료 연결
     });
     // D. 재진 제안은 status CHECK 제약이 'proposed'를 허용할 때만 활성
     const ck = await getPool().query(
       `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname='appointments_status_check'`);
     FEAT.proposed = !ck.rows.length || /proposed/.test(ck.rows[0].def || '');
     const off = Object.keys(FEAT).filter((k) => !FEAT[k]);
-    if (off.length) console.warn('[migrate] 미적용 컬럼 — 기능 비활성:', off.join(', '), '(db/migrate-persona-fixes.sql 참고)');
+    if (off.length) console.warn('[migrate] 미적용 컬럼 — 기능 비활성:', off.join(', '),
+      '(db/migrate-persona-fixes.sql · db/migrate-doc-links.sql 참고)');
   } catch (e) { console.error('[migrate] 컬럼 감지 실패(신규 기능 비활성 유지):', e.message); }
 })();
 
@@ -802,8 +805,30 @@ async function apiCreateDocument(req, res) {
   const db = getPool();
   const p = await myPatientRow(db, me);
   if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
+  // 서류-진료 연결: encounter_id가 오면 본인 진료인지 검증 후 그 진료의 담당의를 assignee로.
+  // 없으면(의무기록 사본·구캐시 클라이언트) 최근 진료 의사를 담당으로 (없으면 null).
+  // FEAT.docLink 미적용이면 두 값 저장 생략 — 기존 동작 그대로.
+  let encId = null, assigneeId = null;
+  if (FEAT.docLink) {
+    if (body.encounter_id !== undefined && body.encounter_id !== null && String(body.encounter_id) !== '') {
+      encId = parseId(body.encounter_id);
+      if (!encId) return sendJson(res, 400, { error: '잘못된 encounter_id' });
+      const er = await db.query(
+        `SELECT doctor_id FROM encounters WHERE id=$1 AND patient_id=$2`, [encId, p.id]);
+      if (!er.rows.length) return sendJson(res, 400, { error: '본인 진료만 선택할 수 있습니다.' });
+      assigneeId = er.rows[0].doctor_id || null;
+    } else {
+      const lr = await db.query(
+        `SELECT doctor_id FROM encounters WHERE patient_id=$1 AND doctor_id IS NOT NULL
+          ORDER BY visited_at DESC LIMIT 1`, [p.id]);
+      assigneeId = lr.rows.length ? lr.rows[0].doctor_id : null;
+    }
+  }
   const r = await db.query(
-    `INSERT INTO documents (patient_id, doc_type) VALUES ($1, $2) RETURNING requested_at`, [p.id, docType]);
+    FEAT.docLink
+      ? `INSERT INTO documents (patient_id, doc_type, encounter_id, assignee_id) VALUES ($1,$2,$3,$4) RETURNING requested_at`
+      : `INSERT INTO documents (patient_id, doc_type) VALUES ($1, $2) RETURNING requested_at`,
+    FEAT.docLink ? [p.id, docType, encId, assigneeId] : [p.id, docType]);
   sendJson(res, 201, {
     ok: true,
     doc: { type: docType, date: fmtDate(r.rows[0].requested_at), status: 'requested', statusLabel: '신청됨' }
@@ -1207,7 +1232,7 @@ async function apiEncounters(req, res) {
   const [cntR, rowR] = await Promise.all([
     db.query(`SELECT count(*)::int AS c FROM encounters e ${where}`, params),
     db.query(
-      `SELECT e.visited_at, e.department, e.note, p.name AS pname, u.name AS dname, u.profile AS dprofile${FEAT.patientSummary ? ', e.patient_summary' : ''},
+      `SELECT e.id, e.visited_at, e.department, e.note, p.name AS pname, u.name AS dname, u.profile AS dprofile${FEAT.patientSummary ? ', e.patient_summary' : ''},
               COALESCE(NULLIF((SELECT string_agg(d.name, ', ' ORDER BY d.id)
                                  FROM diagnoses d WHERE d.encounter_id=e.id), ''),
                        (SELECT string_agg(d.name, ', ' ORDER BY d.diagnosed_at ASC NULLS LAST, d.id)
@@ -1221,7 +1246,7 @@ async function apiEncounters(req, res) {
   sendJson(res, 200, {
     total: cntR.rows[0].c, page,
     rows: rowR.rows.map((r) => {
-      const row = { date: fmtDate(r.visited_at), time: fmtTime(r.visited_at) };
+      const row = { id: r.id, date: fmtDate(r.visited_at), time: fmtTime(r.visited_at) }; // id: 서류 신청 진료 선택용
       if (!omitPatient) row.patient = r.pname;
       row.department = r.department || '';
       row.dx = r.dx;
@@ -1466,12 +1491,23 @@ async function apiDocumentsGet(req, res) {
   else if (status !== 'all') { params.push(status); conds.push(`d.status=$${params.length}`); }
   if (docType) { params.push(docType); conds.push(`d.doc_type=$${params.length}`); }
   if (pidFilter) { params.push(pidFilter); conds.push(`d.patient_id=$${params.length}`); }
+  // 서류-진료 연결: ?assignee=me — 의사 대시보드 "내 담당 신청" 목록용 (FEAT 미적용이면 무시)
+  if (FEAT.docLink && String(query.assignee || '') === 'me' && !omitPatient) {
+    params.push(me.id); conds.push(`d.assignee_id=$${params.length}`);
+  }
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const linkSel = FEAT.docLink
+    ? `, d.encounter_id, d.assignee_id, e.visited_at AS enc_at, e.department AS enc_dept,
+       ua.name AS assignee_name, ua.profile->>'department' AS assignee_dept`
+    : '';
+  const linkJoin = FEAT.docLink
+    ? ` LEFT JOIN encounters e ON e.id=d.encounter_id LEFT JOIN users ua ON ua.id=d.assignee_id`
+    : '';
   const [cntR, rowR] = await Promise.all([
     db.query(`SELECT count(*)::int AS c FROM documents d ${where}`, params),
     db.query(
-      `SELECT d.id, d.doc_type, d.requested_at, d.status, p.name AS pname
-         FROM documents d JOIN patients p ON p.id=d.patient_id
+      `SELECT d.id, d.doc_type, d.requested_at, d.status, p.name AS pname${linkSel}
+         FROM documents d JOIN patients p ON p.id=d.patient_id${linkJoin}
         ${where}
         ORDER BY d.requested_at DESC, d.id DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -1486,6 +1522,13 @@ async function apiDocumentsGet(req, res) {
       row.date = fmtDate(r.requested_at);
       row.status = r.status;
       row.statusLabel = DOC_STATUS_LABEL[r.status] || r.status;
+      if (FEAT.docLink) { // 대상 진료·담당 의료진 (없으면 null — 프론트는 '-' 표시)
+        row.encounter = r.encounter_id
+          ? { date: fmtDate(r.enc_at), department: r.enc_dept || '' } : null;
+        row.assignee = r.assignee_id
+          ? { name: r.assignee_name || '', department: r.assignee_dept || '' } : null;
+        if (!omitPatient) row.assigneeMe = r.assignee_id === me.id;
+      }
       return row;
     })
   });
@@ -1500,9 +1543,22 @@ async function apiDocumentPatch(req, res, id) {
   const status = body.status;
   if (status !== 'issued' && status !== 'rejected') return sendJson(res, 400, { error: '잘못된 상태 값' });
   const db = getPool();
-  const r = await db.query(`SELECT id, status FROM documents WHERE id=$1`, [id]);
+  const r = await db.query(
+    `SELECT id, status, doc_type${FEAT.docLink ? ', assignee_id' : ''} FROM documents WHERE id=$1`, [id]);
   if (!r.rows.length) return sendJson(res, 404, { error: '서류를 찾을 수 없습니다.' });
   if (r.rows[0].status !== 'requested') return sendJson(res, 400, { error: '이미 처리된 서류입니다.' });
+  // 승인 권한: 진단서·소견서는 담당의(assignee)만 발급/반려 (FEAT 미적용이면 기존 권한 그대로).
+  // 담당 미지정 건은 의사 누구나. 검사결과서·처방전·의무기록 사본은 기존대로 의사·간호사 모두.
+  if (FEAT.docLink && ['진단서', '소견서'].includes(r.rows[0].doc_type) && me.role !== 'admin') {
+    if (me.role !== 'doctor')
+      return sendJson(res, 403, { error: '진단서·소견서는 담당 의사가 발급해야 합니다.' });
+    const aid = r.rows[0].assignee_id;
+    if (aid && aid !== me.id) {
+      const an = await db.query(`SELECT name FROM users WHERE id=$1`, [aid]);
+      const nm = an.rows.length ? an.rows[0].name : '담당';
+      return sendJson(res, 403, { error: `담당의(${nm} 의사)가 발급해야 합니다.` });
+    }
+  }
   await db.query(`UPDATE documents SET status=$1 WHERE id=$2`, [status, id]);
   sendJson(res, 200, { ok: true });
 }

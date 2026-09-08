@@ -289,6 +289,85 @@
      P4의 인라인 토글(setupDocsHistory)은 제거. renderDocsList 등은 신청 성공 경로에서 재사용. */
 
   /* ---------- 서류 발급 신청 (POST /api/documents) ---------- */
+  // 서류-진료 연결: 진료 연관 유형은 신청 시 대상 진료 선택 (의무기록 사본은 기존 흐름)
+  var ENC_DOC_TYPES = ['진단서', '소견서', '검사결과서', '처방전'];
+
+  function openDocRequestModal(label, docType, encRows) {
+    var overlay = el('div', 'bn-overlay open');
+    var modal = el('div', 'bn-modal');
+    modal.setAttribute('role', 'dialog');
+    modal.appendChild(el('h3', null, label + ' 신청'));
+    var note = el('div', 'muted', '어떤 진료에 대한 서류인지 선택해 주세요. 해당 진료의 담당 의사가 발급합니다.');
+    note.style.cssText = 'font-size:11.5px;margin:-4px 0 10px;';
+    modal.appendChild(note);
+    modal.appendChild(el('label', null, '대상 진료'));
+    var sel = document.createElement('select');
+    var opt0 = document.createElement('option');
+    opt0.value = ''; opt0.textContent = '진료를 선택하세요';
+    sel.appendChild(opt0);
+    encRows.slice(0, 10).forEach(function (r2) {
+      var o = document.createElement('option');
+      o.value = String(r2.id);
+      o.textContent = (r2.date || '') + ' · ' + (r2.department || '') + ' · ' + (r2.doctor || ''); // 전부 텍스트
+      sel.appendChild(o);
+    });
+    modal.appendChild(sel);
+    var err = el('div', 'bn-modal-err');
+    err.hidden = true;
+    modal.appendChild(err);
+    var btns = el('div', 'bn-modal-btns');
+    var ok = el('button', 'bn-btn-primary', '신청'); ok.type = 'button';
+    var no = el('button', 'bn-btn-ghost', '취소'); no.type = 'button';
+    btns.appendChild(ok); btns.appendChild(no);
+    modal.appendChild(btns);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    function close() { overlay.remove(); }
+    no.addEventListener('click', close);
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+    ok.addEventListener('click', function () {
+      if (!sel.value) { err.textContent = '대상 진료를 선택해 주세요.'; err.hidden = false; return; }
+      ok.disabled = true;
+      requestDoc(docType, parseInt(sel.value, 10), function () { close(); }, function () { ok.disabled = false; });
+    });
+  }
+
+  function requestDoc(docType, encounterId, onDone, onFail) {
+    var body = { doc_type: docType };
+    if (encounterId) body.encounter_id = encounterId;
+    fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        return { ok: r.ok, status: r.status, body: j };
+      });
+    }).then(function (res) {
+      if (!res.ok) {
+        console.warn('[patient] POST /api/documents ' + res.status);
+        toast((res.body && res.body.error) || '서류 신청에 실패했습니다 (' + res.status + ')', true);
+        if (onFail) onFail();
+        return;
+      }
+      if (onDone) onDone();
+      toast('서류 신청이 접수되었습니다');
+      if (res.body && res.body.doc) {
+        if (!Array.isArray(docsData)) docsData = [];
+        docsData.unshift(res.body.doc);
+        docsData = docsData.slice(0, 5);
+      }
+      var list = $('#bnDocsList');
+      if (list && list.classList.contains('open')) renderDocsList();
+      loadDashboard();
+      refreshActiveView();
+    }).catch(function (err2) {
+      console.warn('[patient] POST /api/documents 실패:', err2.message);
+      toast('서버에 연결할 수 없습니다', true);
+      if (onFail) onFail();
+    });
+  }
+
   function attachDocCards(root) {
     if (!root) return;
     $all('.doc-c', root).forEach(function (cardEl) {
@@ -298,6 +377,17 @@
         var label = h4 ? h4.textContent.trim() : '';
         var docType = DOC_MAP[label];
         if (!docType) return;
+        // 진료 연관 유형 → 대상 진료 선택 모달 (진료 목록에 id가 없으면(구서버) 기존 흐름 폴백)
+        if (ENC_DOC_TYPES.indexOf(docType) !== -1) {
+          fetchJSON('/api/encounters?page=1').then(function (d) {
+            var rows = Array.isArray(d.rows) ? d.rows : [];
+            if (rows.length && rows[0].id !== undefined) { openDocRequestModal(label, docType, rows); return; }
+            if (window.confirm("'" + label + "'을(를) 신청하시겠습니까?")) requestDoc(docType, null);
+          }).catch(function () {
+            if (window.confirm("'" + label + "'을(를) 신청하시겠습니까?")) requestDoc(docType, null);
+          });
+          return;
+        }
         if (!window.confirm("'" + label + "'을(를) 신청하시겠습니까?")) return;
 
         fetch('/api/documents', {
@@ -1016,10 +1106,17 @@
         }
         return;
       }
-      var t = makeTable(['서류', '신청일', '상태']);
+      // 서류-진료 연결: encounter/assignee 필드가 있을 때만 컬럼 추가 (구서버 폴백)
+      var hasLink = rows[0].encounter !== undefined;
+      var t = makeTable(hasLink ? ['서류', '대상 진료', '담당', '신청일', '상태'] : ['서류', '신청일', '상태']);
       rows.forEach(function (doc) {
         var tr = document.createElement('tr');
         tr.appendChild(td(doc.type));
+        if (hasLink) {
+          tr.appendChild(td(doc.encounter ? (doc.encounter.date + ' ' + (doc.encounter.department || '')) : '-'));
+          tr.appendChild(td(doc.assignee
+            ? (doc.assignee.name + ' 의사' + (doc.assignee.department ? '(' + doc.assignee.department + ')' : '')) : '-'));
+        }
         tr.appendChild(td(doc.date));
         var cell = document.createElement('td');
         var stCls = DOC_STATUS_CLASSES[doc.status] || 'st-requested';
