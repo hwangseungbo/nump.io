@@ -1535,6 +1535,106 @@ async function apiDocumentsGet(req, res) {
 }
 
 // DELETE /api/documents/:id — 환자 본인 신청 취소 (requested 건만, 처리 전 신청은 이력 없이 회수)
+// 3차. GET /api/documents/:id — 발급 완료(issued) 서류 열람 데이터.
+// [한계] 발급 시점 스냅샷이 아니라 "조회 시점 EMR 렌더" — 스키마 무변경 트레이드오프(데모 용도).
+//        발급 후 EMR이 바뀌면 내용도 달라질 수 있음. 스냅샷 컬럼은 백로그.
+async function apiDocumentView(req, res, id) {
+  const me = await requireRole(req, res, ['doctor', 'nurse', 'patient']);
+  if (!me) return;
+  const db = getPool();
+  const linkSel = FEAT.docLink ? ', d.encounter_id, d.assignee_id' : '';
+  const r = await db.query(
+    `SELECT d.id, d.doc_type, d.requested_at, d.status, d.patient_id${linkSel},
+            p.name AS pname, p.sex, p.birth_date, p.created_at AS pcreated, p.user_id
+       FROM documents d JOIN patients p ON p.id=d.patient_id WHERE d.id=$1`, [id]);
+  if (!r.rows.length) return sendJson(res, 404, { error: '서류를 찾을 수 없습니다.' });
+  const doc = r.rows[0];
+  if (me.role === 'patient' && doc.user_id !== me.id)
+    return sendJson(res, 404, { error: '서류를 찾을 수 없습니다.' }); // 타 환자 — 존재 노출 방지
+  if (doc.status !== 'issued')
+    return sendJson(res, 400, { error: '발급 완료된 서류만 열람할 수 있습니다.' });
+  const pid = doc.patient_id;
+  // 담당의: assignee → 없으면 최근 진료 의사
+  let assignee = null;
+  let aid = FEAT.docLink ? doc.assignee_id : null;
+  if (!aid) {
+    const lr = await db.query(
+      `SELECT doctor_id FROM encounters WHERE patient_id=$1 AND doctor_id IS NOT NULL
+        ORDER BY visited_at DESC LIMIT 1`, [pid]);
+    aid = lr.rows.length ? lr.rows[0].doctor_id : null;
+  }
+  if (aid) {
+    const a = await db.query(`SELECT name, profile->>'department' AS dept FROM users WHERE id=$1`, [aid]);
+    if (a.rows.length) assignee = { name: a.rows[0].name, department: a.rows[0].dept || '' };
+  }
+  // 대상 진료 (있으면)
+  let encounter = null;
+  const encId = FEAT.docLink ? doc.encounter_id : null;
+  if (encId) {
+    const e = await db.query(
+      `SELECT visited_at, department${FEAT.patientSummary ? ', patient_summary' : ''} FROM encounters WHERE id=$1`, [encId]);
+    if (e.rows.length) encounter = {
+      date: fmtDate(e.rows[0].visited_at), department: e.rows[0].department || '',
+      summary: FEAT.patientSummary ? (e.rows[0].patient_summary || '') : ''
+    };
+  }
+  const out = {
+    docNo: `BN-${new Date(doc.requested_at).getFullYear()}-${String(doc.id).padStart(6, '0')}`,
+    type: doc.doc_type,
+    requestedAt: fmtDate(doc.requested_at),
+    viewedAt: fmtDate(new Date()), // 발급일 컬럼이 없어 '발급 확인일: 조회일'로 표기 (판단 위임분)
+    patient: {
+      name: doc.pname, birth: doc.birth_date ? fmtDate(doc.birth_date) : '', age: calcAge(doc.birth_date),
+      sexLabel: doc.sex === 'M' ? '남' : doc.sex === 'F' ? '여' : '', pid: fmtPid(pid, doc.pcreated)
+    },
+    assignee,
+    encounter: encounter ? { date: encounter.date, department: encounter.department } : null
+  };
+  // ── 유형별 본문 (기타는 의무기록 사본과 동일한 진료 이력 폴백) ──
+  if (doc.doc_type === '진단서' || doc.doc_type === '소견서') {
+    let dxRows = [];
+    if (encId) dxRows = (await db.query(
+      `SELECT name, code, diagnosed_at FROM diagnoses WHERE encounter_id=$1 ORDER BY id`, [encId])).rows;
+    if (!dxRows.length) dxRows = (await db.query(
+      `SELECT name, code, diagnosed_at FROM diagnoses WHERE patient_id=$1
+        ORDER BY diagnosed_at DESC NULLS LAST, id DESC LIMIT 5`, [pid])).rows;
+    out.diagnoses = dxRows.map((d2) => ({
+      name: d2.name, code: d2.code || '', date: d2.diagnosed_at ? fmtDate(d2.diagnosed_at) : ''
+    }));
+    let opinion = (encounter && encounter.summary) || '';
+    if (!opinion && doc.doc_type === '소견서' && FEAT.patientSummary) {
+      const s2 = await db.query(
+        `SELECT patient_summary FROM encounters
+          WHERE patient_id=$1 AND patient_summary IS NOT NULL ORDER BY visited_at DESC LIMIT 1`, [pid]);
+      if (s2.rows.length) opinion = s2.rows[0].patient_summary;
+    }
+    out.opinion = opinion || (doc.doc_type === '소견서' ? '소견 미기재' : '');
+  } else if (doc.doc_type === '검사결과서') {
+    out.labs = (await db.query(
+      `SELECT tested_at, test_name, value, ref_range, flag FROM lab_results
+        WHERE patient_id=$1 ORDER BY tested_at DESC, id DESC LIMIT 10`, [pid])).rows.map((l) => ({
+      date: fmtDate(l.tested_at), test: l.test_name, value: l.value, ref: l.ref_range || '', flag: l.flag || ''
+    }));
+  } else if (doc.doc_type === '처방전') {
+    out.prescriptions = (await db.query(
+      `SELECT drug_name, dosage, start_date FROM prescriptions
+        WHERE patient_id=$1 AND active ORDER BY start_date ASC NULLS LAST, id`, [pid])).rows.map((x) => ({
+      drug: x.drug_name, dosage: x.dosage || '', start: x.start_date ? fmtDate(x.start_date) : ''
+    }));
+  } else { // 의무기록 사본·기타 — 진료 이력 최근 20건
+    out.encounters = (await db.query(
+      `SELECT e.visited_at, e.department, u.name AS dname,
+              COALESCE((SELECT string_agg(d2.name, ', ' ORDER BY d2.id)
+                          FROM diagnoses d2 WHERE d2.encounter_id=e.id), '') AS dx
+         FROM encounters e LEFT JOIN users u ON u.id=e.doctor_id
+        WHERE e.patient_id=$1 AND e.visited_at <= now()
+        ORDER BY e.visited_at DESC LIMIT 20`, [pid])).rows.map((e2) => ({
+      date: fmtDate(e2.visited_at), department: e2.department || '', dx: e2.dx, doctor: e2.dname || ''
+    }));
+  }
+  sendJson(res, 200, out);
+}
+
 async function apiDocumentDelete(req, res, id) {
   const me = await requireRole(req, res, ['patient']);
   if (!me) return;
@@ -2512,6 +2612,8 @@ async function handle(req, res) {
   if (pm) {
     const id = parseId(pm[2]);
     if (!id) return sendJson(res, 404, { error: 'not found' });
+    // 3차. 발급 완료 서류 열람 (환자 본인·의료진)
+    if (pm[1] === 'documents' && req.method === 'GET') return apiDocumentView(req, res, id);
     // 환자 본인 서류 신청 취소 (처리 전 requested 건만)
     if (pm[1] === 'documents' && req.method === 'DELETE') return apiDocumentDelete(req, res, id);
     if (req.method !== 'PATCH') return sendJson(res, 405, { error: 'Method Not Allowed' });

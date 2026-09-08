@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basil Nexus · 서류 열람</title>
+<link rel="icon" href="../assets/favicon.ico" sizes="any" />
+<meta name="theme-color" content="#2f9e57" />
+<link rel="stylesheet" href="css/shell.css?v=10" />
+<style>
+  /* 서류 열람 전용 — shell.css 토큰(var(--ink) 등) 활용, 새 탭 열람 전제 */
+  body{ background:var(--page, #f2f6f3); }
+  .doc-wrap{ max-width:760px; margin:26px auto 60px; padding:0 16px; }
+  .doc-toolbar{ display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px; align-items:center; }
+  .doc-toolbar .hint{ font-size:11.5px; color:var(--muted); margin-right:auto; }
+  .doc-print-btn{ font-family:inherit; font-size:13px; font-weight:700; color:#fff; background:var(--accent, #2f9e57);
+    border:none; border-radius:10px; padding:10px 18px; cursor:pointer; }
+  .doc-sheet{ background:#fff; border:1px solid var(--line, #dfe7e0); border-radius:14px; padding:36px 40px 30px;
+    box-shadow:0 8px 26px rgba(20,40,28,.07); }
+  .doc-demo{ background:#fdeaea; color:#c0392b; border:1px solid #f5c2c2; border-radius:10px;
+    font-size:12.5px; font-weight:700; text-align:center; padding:9px 12px; margin-bottom:20px; }
+  .doc-head{ display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--ink, #1f2d27);
+    padding-bottom:12px; margin-bottom:6px; }
+  .doc-hosp{ font-size:15px; font-weight:800; color:var(--accent-d, #1f8a4c); }
+  .doc-no{ font-size:11.5px; color:var(--muted); }
+  .doc-title{ text-align:center; font-size:24px; font-weight:800; letter-spacing:12px; margin:24px 0 22px; text-indent:12px; }
+  table.doc-t{ width:100%; border-collapse:collapse; font-size:13px; margin-bottom:18px; }
+  .doc-t th, .doc-t td{ border:1px solid var(--line-2, #e7ede8); padding:8px 10px; text-align:left; }
+  .doc-t th{ background:var(--page, #f4f8f5); color:var(--ink-2, #3c5a47); font-size:12px; font-weight:700;
+    width:110px; white-space:nowrap; }
+  .doc-t.cols th{ width:auto; }
+  .doc-sec{ font-size:13px; font-weight:800; margin:18px 0 8px; }
+  .doc-opinion{ font-size:13px; line-height:1.65; white-space:pre-wrap; border:1px solid var(--line-2, #e7ede8);
+    border-radius:8px; padding:12px 14px; min-height:64px; }
+  .doc-foot{ margin-top:28px; text-align:right; font-size:13px; line-height:1.9; }
+  .doc-foot .org{ font-weight:800; }
+  .doc-issuer{ margin-top:6px; }
+  .doc-meta{ font-size:11.5px; color:var(--muted); margin-top:16px; text-align:center; }
+  .doc-err{ text-align:center; padding:60px 20px; font-size:14px; color:var(--muted); }
+  .flg-h2{ color:#2e7aa8; font-weight:700; }
+  .flg-l2{ color:#e5484d; font-weight:700; }
+  @media print{ /* [인쇄] → 브라우저 인쇄에서 PDF 저장 가능 (A4) */
+    @page{ size:A4; margin:14mm; }
+    body{ background:#fff; }
+    .doc-toolbar{ display:none; }
+    .doc-wrap{ margin:0; max-width:none; padding:0; }
+    .doc-sheet{ border:none; box-shadow:none; border-radius:0; padding:0; }
+  }
+</style>
+</head>
+<body>
+<div class="doc-wrap">
+  <div class="doc-toolbar">
+    <span class="hint">인쇄 화면에서 ‘PDF로 저장’을 선택하면 파일로 보관할 수 있습니다.</span>
+    <button class="doc-print-btn" id="printBtn" type="button">인쇄</button>
+  </div>
+  <div class="doc-sheet" id="sheet">
+    <div class="doc-err" id="loading">서류를 불러오는 중…</div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var sheet = document.getElementById('sheet');
+  document.getElementById('printBtn').addEventListener('click', function () { window.print(); });
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text; // 서류 내용은 전부 DB 유래 → 항상 textContent (stored-XSS 방지)
+    return e;
+  }
+  function fail(msg) {
+    sheet.innerHTML = '';
+    sheet.appendChild(el('div', 'doc-err', msg));
+  }
+  function kvTable(pairs) { // [[라벨, 값], ...] 2열×n 표
+    var t = el('table', 'doc-t');
+    for (var i = 0; i < pairs.length; i += 2) {
+      var tr = document.createElement('tr');
+      tr.appendChild(el('th', null, pairs[i][0]));
+      tr.appendChild(el('td', null, pairs[i][1] || '-'));
+      if (pairs[i + 1]) {
+        tr.appendChild(el('th', null, pairs[i + 1][0]));
+        tr.appendChild(el('td', null, pairs[i + 1][1] || '-'));
+      } else {
+        var sp = el('td', null, '');
+        sp.colSpan = 2;
+        tr.appendChild(sp);
+      }
+      t.appendChild(tr);
+    }
+    return t;
+  }
+  function listTable(cols, rows, cells) { // 헤더 행 + 데이터 행 (cells: row → [값...])
+    var t = el('table', 'doc-t cols');
+    var hr = document.createElement('tr');
+    cols.forEach(function (c) { hr.appendChild(el('th', null, c)); });
+    t.appendChild(hr);
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      cells(r).forEach(function (v) {
+        if (v && v.nodeType) { var td0 = document.createElement('td'); td0.appendChild(v); tr.appendChild(td0); }
+        else tr.appendChild(el('td', null, v == null || v === '' ? '-' : String(v)));
+      });
+      t.appendChild(tr);
+    });
+    if (!rows.length) {
+      var er = document.createElement('tr');
+      var ec = el('td', null, '기재할 내용이 없습니다');
+      ec.colSpan = cols.length;
+      ec.style.textAlign = 'center';
+      ec.style.color = 'var(--muted)';
+      er.appendChild(ec);
+      t.appendChild(er);
+    }
+    return t;
+  }
+
+  var id = parseInt(new URLSearchParams(location.search).get('id'), 10);
+  if (!isFinite(id) || id <= 0) { fail('잘못된 접근입니다. (서류 번호 없음)'); return; }
+
+  fetch('/api/documents/' + id).then(function (r) {
+    return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
+  }).then(function (res) {
+    if (!res.ok) {
+      if (res.status === 401) fail('로그인이 필요합니다. 대시보드에서 로그인 후 다시 열어 주세요.');
+      else fail((res.body && res.body.error) || '서류를 불러올 수 없습니다 (' + res.status + ')');
+      return;
+    }
+    render(res.body);
+  }).catch(function () { fail('서버에 연결할 수 없습니다.'); });
+
+  function render(d) {
+    sheet.innerHTML = '';
+    // 데모 고지 — 실문서 오인 방지 (인쇄물에도 포함)
+    sheet.appendChild(el('div', 'doc-demo', '본 문서는 데모 시스템에서 발급된 문서로 법적 효력이 없습니다.'));
+    var head = el('div', 'doc-head');
+    head.appendChild(el('div', 'doc-hosp', 'Basil Nexus Smart Clinic'));
+    head.appendChild(el('div', 'doc-no', '문서번호 ' + (d.docNo || '')));
+    sheet.appendChild(head);
+    sheet.appendChild(el('div', 'doc-title', d.type || '서류'));
+
+    var p = d.patient || {};
+    sheet.appendChild(kvTable([
+      ['환자명', p.name], ['환자번호', p.pid],
+      ['생년월일', p.birth ? p.birth + ' (만 ' + (p.age != null ? p.age : '-') + '세)' : ''], ['성별', p.sexLabel],
+      ['신청일', d.requestedAt],
+      ['대상 진료', d.encounter ? d.encounter.date + ' · ' + (d.encounter.department || '') : '전체 기록 기준']
+    ]));
+
+    if (d.diagnoses) { // 진단서·소견서
+      sheet.appendChild(el('div', 'doc-sec', '진단명'));
+      sheet.appendChild(listTable(['진단명', '질병코드', '진단일'], d.diagnoses, function (x) {
+        return [x.name, x.code, x.date];
+      }));
+      sheet.appendChild(el('div', 'doc-sec', d.type === '소견서' ? '소견' : '진료 소견'));
+      if (d.opinion) sheet.appendChild(el('div', 'doc-opinion', d.opinion));
+      else sheet.appendChild(el('div', 'doc-opinion', '상기 환자는 위 진단명으로 본원에서 진료받았음을 확인합니다.'));
+    }
+    if (d.labs) { // 검사결과서
+      sheet.appendChild(el('div', 'doc-sec', '검사 결과 (최근 10건)'));
+      sheet.appendChild(listTable(['검사일', '항목', '결과', '참고치', '판정'], d.labs, function (x) {
+        var flag = x.flag === 'H' ? el('span', 'flg-h2', '높음(H)') : x.flag === 'L' ? el('span', 'flg-l2', '낮음(L)') : '정상';
+        return [x.date, x.test, x.value, x.ref, flag];
+      }));
+    }
+    if (d.prescriptions) { // 처방전
+      sheet.appendChild(el('div', 'doc-sec', '처방 내역 (복용 중)'));
+      sheet.appendChild(listTable(['약품명', '용법·용량', '처방 시작일'], d.prescriptions, function (x) {
+        return [x.drug, x.dosage, x.start];
+      }));
+    }
+    if (d.encounters) { // 의무기록 사본·기타
+      sheet.appendChild(el('div', 'doc-sec', '진료 이력 (최근 20건)'));
+      sheet.appendChild(listTable(['진료일', '진료과', '진단', '담당의'], d.encounters, function (x) {
+        return [x.date, x.department, x.dx, x.doctor];
+      }));
+    }
+
+    var foot = el('div', 'doc-foot');
+    if (d.assignee) foot.appendChild(el('div', 'doc-issuer',
+      '담당의: ' + d.assignee.name + (d.assignee.department ? ' (' + d.assignee.department + ')' : '') + ' (인)'));
+    foot.appendChild(el('div', 'org', '발급기관: Basil Nexus Smart Clinic'));
+    foot.appendChild(el('div', null, '발급 확인일: ' + (d.viewedAt || '')));
+    sheet.appendChild(foot);
+    // [한계] 조회 시점 EMR 렌더 — 발급 시점 스냅샷 아님 (스키마 무변경 트레이드오프)
+    sheet.appendChild(el('div', 'doc-meta',
+      '본 내용은 조회 시점의 진료 기록을 기준으로 표시됩니다 · 데모 시스템 · 법적 효력 없음'));
+  }
+})();
+</script>
+</body>
+</html>

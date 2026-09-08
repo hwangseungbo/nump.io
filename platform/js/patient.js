@@ -1122,8 +1122,16 @@
         var stCls = DOC_STATUS_CLASSES[doc.status] || 'st-requested';
         cell.appendChild(el('span', 'bn-doc-st ' + stCls, doc.statusLabel || ''));
         tr.appendChild(cell);
-        // 신청 취소 — 처리 전(requested) 건만
+        // 신청 취소 — 처리 전(requested) 건만 / 3차: 발급 완료 건은 [열람] (새 탭)
         var act = document.createElement('td');
+        if (doc.status === 'issued' && doc.id) {
+          var vw = el('a', 'vt-btn', '열람');
+          vw.href = '../document.html?id=' + doc.id;
+          vw.target = '_blank';
+          vw.rel = 'noopener';
+          vw.style.textDecoration = 'none';
+          act.appendChild(vw);
+        }
         if (doc.status === 'requested' && doc.id) {
           var cb = el('button', 'vt-btn warn-ghost', '신청 취소');
           cb.type = 'button';
