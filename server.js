@@ -1534,6 +1534,21 @@ async function apiDocumentsGet(req, res) {
   });
 }
 
+// DELETE /api/documents/:id — 환자 본인 신청 취소 (requested 건만, 처리 전 신청은 이력 없이 회수)
+async function apiDocumentDelete(req, res, id) {
+  const me = await requireRole(req, res, ['patient']);
+  if (!me) return;
+  const db = getPool();
+  const p = await myPatientRow(db, me);
+  if (!p) return sendJson(res, 404, { error: '환자 정보를 찾을 수 없습니다.' });
+  const r = await db.query(`SELECT id, status FROM documents WHERE id=$1 AND patient_id=$2`, [id, p.id]);
+  if (!r.rows.length) return sendJson(res, 404, { error: '서류를 찾을 수 없습니다.' });
+  if (r.rows[0].status !== 'requested')
+    return sendJson(res, 400, { error: '이미 처리된 서류는 취소할 수 없습니다.' });
+  await db.query(`DELETE FROM documents WHERE id=$1`, [id]);
+  sendJson(res, 200, { ok: true });
+}
+
 // §1-6 PATCH /api/documents/:id — doctor/nurse/admin, requested 건만 issued|rejected
 async function apiDocumentPatch(req, res, id) {
   const me = await requireRole(req, res, ['doctor', 'nurse']);
@@ -2495,9 +2510,11 @@ async function handle(req, res) {
   // (bills는 토스 결제 checkout/confirm으로 대체되어 데모 PATCH 수납 제거)
   const pm = pathname.match(/^\/api\/(documents|appointments|admissions)\/([^/]+)$/);
   if (pm) {
-    if (req.method !== 'PATCH') return sendJson(res, 405, { error: 'Method Not Allowed' });
     const id = parseId(pm[2]);
     if (!id) return sendJson(res, 404, { error: 'not found' });
+    // 환자 본인 서류 신청 취소 (처리 전 requested 건만)
+    if (pm[1] === 'documents' && req.method === 'DELETE') return apiDocumentDelete(req, res, id);
+    if (req.method !== 'PATCH') return sendJson(res, 405, { error: 'Method Not Allowed' });
     if (pm[1] === 'documents')    return apiDocumentPatch(req, res, id);
     if (pm[1] === 'appointments') return apiAppointmentPatch(req, res, id);
     return apiAdmissionPatch(req, res, id);

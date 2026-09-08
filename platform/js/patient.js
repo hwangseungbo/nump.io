@@ -1108,7 +1108,7 @@
       }
       // 서류-진료 연결: encounter/assignee 필드가 있을 때만 컬럼 추가 (구서버 폴백)
       var hasLink = rows[0].encounter !== undefined;
-      var t = makeTable(hasLink ? ['서류', '대상 진료', '담당', '신청일', '상태'] : ['서류', '신청일', '상태']);
+      var t = makeTable(hasLink ? ['서류', '대상 진료', '담당', '신청일', '상태', '관리'] : ['서류', '신청일', '상태', '관리']);
       rows.forEach(function (doc) {
         var tr = document.createElement('tr');
         tr.appendChild(td(doc.type));
@@ -1122,6 +1122,26 @@
         var stCls = DOC_STATUS_CLASSES[doc.status] || 'st-requested';
         cell.appendChild(el('span', 'bn-doc-st ' + stCls, doc.statusLabel || ''));
         tr.appendChild(cell);
+        // 신청 취소 — 처리 전(requested) 건만
+        var act = document.createElement('td');
+        if (doc.status === 'requested' && doc.id) {
+          var cb = el('button', 'vt-btn warn-ghost', '신청 취소');
+          cb.type = 'button';
+          cb.addEventListener('click', function () {
+            if (!window.confirm("'" + doc.type + "' 신청을 취소하시겠습니까?")) return;
+            cb.disabled = true;
+            fetch('/api/documents/' + doc.id, { method: 'DELETE' }).then(function (r) {
+              return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, body: j }; });
+            }).then(function (res) {
+              if (!res.ok) { toast((res.body && res.body.error) || '취소에 실패했습니다', true); cb.disabled = false; return; }
+              toast('신청이 취소되었습니다');
+              loadDocsPage(card, pageState.docs);
+              loadDashboard();
+            }).catch(function () { toast('서버에 연결할 수 없습니다', true); cb.disabled = false; });
+          });
+          act.appendChild(cb);
+        }
+        tr.appendChild(act);
         t.tbody.appendChild(tr);
       });
       body.appendChild(t.wrap);
