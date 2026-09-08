@@ -55,6 +55,14 @@
   .av-table img{ width:80px; height:80px; object-fit:contain; border-radius:14px; border:1px solid var(--line-2);
     background:var(--page); display:block; transition:border-color .15s, box-shadow .15s; }
   .av-table a:hover img{ border-color:var(--accent); box-shadow:0 4px 12px rgba(47,158,87,.18); }
+  /* ── 시연 가이드 ── */
+  .g-wrap{ overflow-x:auto; }
+  .g-note{ font-size:12.5px; color:var(--ink-2,#364a3f); background:var(--accent-soft,#e9f6ee);
+    border:1px solid var(--accent-line,#d6ecdd); border-radius:10px; padding:10px 14px; margin-bottom:14px; }
+  .g-note code, .guide-tbl code{ font-family:inherit; font-weight:700; color:var(--accent-dd,#176b3a);
+    background:#fff; border:1px solid var(--line-2); border-radius:6px; padding:1px 7px; font-size:12px; white-space:nowrap; }
+  .g-tips{ margin:0; padding-left:18px; font-size:13px; line-height:1.8; color:var(--ink-2,#364a3f); }
+  .g-tips b{ color:var(--ink,#1f2d27); }
 </style>
 </head>
 <body data-role="admin">
@@ -73,6 +81,7 @@
     <button class="tab on" data-tab="accounts" type="button">계정 관리</button>
     <button class="tab" data-tab="personas" type="button">페르소나</button>
     <button class="tab" data-tab="avatars" type="button">아바타</button>
+    <button class="tab" data-tab="guide" type="button">시연 가이드</button>
   </nav>
 
   <!-- 탭1: 계정 관리 (기존 .grid2 그대로 이동) -->
@@ -153,6 +162,76 @@
       <div class="av-wrap"><table class="av-table" id="avNurse"></table></div>
     </div>
   </div><!-- /tab-avatars -->
+
+  <!-- 탭4: 시연 가이드 (정적 — 데모 계정 구성은 시드로 고정) -->
+  <div class="tabpane" id="tab-guide" style="display:none">
+    <div class="card">
+      <div class="sec-t"><h2>데모 계정 안내</h2></div>
+      <div class="g-note">비밀번호는 역할명+1234 — 의사 <code>doctor1234</code> · 간호사 <code>nurse1234</code> · 환자 <code>patient1234</code> · 관리자 <code>admin1234</code></div>
+      <div class="p-desc">계정 구성은 시드 데이터 기준입니다. 실시간 전체 목록은 계정 관리 탭에서 확인하세요.</div>
+    </div>
+
+    <div class="card pcard">
+      <div class="sec-t"><h2>의사</h2><span class="muted">doctor1~10</span></div>
+      <div class="g-wrap"><table class="users guide-tbl">
+        <thead><tr><th>계정</th><th>이름</th><th>진료과</th><th>내선</th><th>계정</th><th>이름</th><th>진료과</th><th>내선</th></tr></thead>
+        <tbody>
+          <tr><td><code>doctor1</code></td><td>홍성민</td><td>가정의학과</td><td>7110</td><td><code>doctor6</code></td><td>오정환</td><td>외과</td><td>7115</td></tr>
+          <tr><td><code>doctor2</code></td><td>김서준</td><td>내과</td><td>7111</td><td><code>doctor7</code></td><td>임지현</td><td>피부과</td><td>7116</td></tr>
+          <tr><td><code>doctor3</code></td><td>이하은</td><td>정형외과</td><td>7112</td><td><code>doctor8</code></td><td>강도현</td><td>신경과</td><td>7117</td></tr>
+          <tr><td><code>doctor4</code></td><td>박민재</td><td>소아청소년과</td><td>7113</td><td><code>doctor9</code></td><td>윤미래</td><td>안과</td><td>7118</td></tr>
+          <tr><td><code>doctor5</code></td><td>최유진</td><td>재활의학과</td><td>7114</td><td><code>doctor10</code></td><td>서연우</td><td>이비인후과</td><td>7119</td></tr>
+        </tbody>
+      </table></div>
+      <div class="p-desc">내선은 02-6300-71XX · 전원 진료 페르소나 보유(페르소나 탭에서 열람)</div>
+    </div>
+
+    <div class="card pcard">
+      <div class="sec-t"><h2>간호사</h2><span class="muted">nurse1~10</span></div>
+      <div class="g-wrap"><table class="users guide-tbl">
+        <thead><tr><th>계정</th><th>이름</th><th>병동</th><th>계정</th><th>이름</th><th>병동</th></tr></thead>
+        <tbody>
+          <tr><td><code>nurse1</code></td><td>김나연</td><td>내과 병동</td><td><code>nurse6</code></td><td>김태오</td><td>내과 병동</td></tr>
+          <tr><td><code>nurse2</code></td><td>박지민</td><td>외과 병동</td><td><code>nurse7</code></td><td>조은별</td><td>외과 병동</td></tr>
+          <tr><td><code>nurse3</code></td><td>이수아</td><td>내과 병동</td><td><code>nurse8</code></td><td>문성호</td><td>외과 병동</td></tr>
+          <tr><td><code>nurse4</code></td><td>정다은</td><td>외과 병동</td><td><code>nurse9</code></td><td>배소현</td><td>내과 병동</td></tr>
+          <tr><td><code>nurse5</code></td><td>한예린</td><td>내과 병동</td><td><code>nurse10</code></td><td>신유나</td><td>외과 병동</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card pcard">
+      <div class="sec-t"><h2>환자</h2><span class="muted">patient1~10</span></div>
+      <div class="g-wrap"><table class="users guide-tbl">
+        <thead><tr><th>계정</th><th>이름</th><th>성별·출생</th><th>주요 진단</th><th>알레르기</th><th>AI 페르소나 특징</th></tr></thead>
+        <tbody>
+          <tr><td><code>patient1</code></td><td>홍길동</td><td>남 1980</td><td>고혈압·고지혈증 외</td><td>페니실린</td><td>공손하고 꼼꼼히 묻는 형</td></tr>
+          <tr><td><code>patient2</code></td><td>김철수</td><td>남 1981</td><td>고혈압·골다공증</td><td>-</td><td>반말·직설적인 형</td></tr>
+          <tr><td><code>patient3</code></td><td>박영희</td><td>여 1963</td><td>고혈압·당뇨병</td><td>조영제(요오드계)</td><td>불안해서 반복 확인하는 형</td></tr>
+          <tr><td><code>patient4</code></td><td>이민수</td><td>남 1996</td><td>위궤양</td><td>-</td><td>사무적·간결한 형</td></tr>
+          <tr><td><code>patient5</code></td><td>최지연</td><td>여 1970</td><td>갑상선기능저하증</td><td>-</td><td>수다스럽고 사연 많은 형</td></tr>
+          <tr><td><code>patient6</code></td><td>김복순</td><td>여 1945</td><td>백내장·고혈압</td><td>아스피린·설파제</td><td>어르신 반복 확인형</td></tr>
+          <tr><td><code>patient7</code></td><td>이준서</td><td>남 2022</td><td>급성 중이염</td><td>-</td><td>보호자(어머니) 대리 상담</td></tr>
+          <tr><td><code>patient8</code></td><td>박서연</td><td>여 2011</td><td>아토피 피부염</td><td>갑각류(새우·게)</td><td>10대, 인터넷 정보 확인형</td></tr>
+          <tr><td><code>patient9</code></td><td>정태웅</td><td>남 1990</td><td>급성 충수염(수술 후)</td><td>-</td><td>일정 중심 직장인형</td></tr>
+          <tr><td><code>patient10</code></td><td>한말자</td><td>여 1958</td><td>양성 발작성 현훈</td><td>-</td><td>상세 서술·안심 선호형</td></tr>
+        </tbody>
+      </table></div>
+      <div class="p-desc">주치의는 연령·질환에 맞게 배정 — 예: 이준서(소아 중이염)→서연우 이비인후과, 김복순(백내장)→윤미래 안과, 박서연(아토피)→임지현 피부과</div>
+    </div>
+
+    <div class="card pcard">
+      <div class="sec-t"><h2>시연 흐름 팁</h2></div>
+      <ul class="g-tips">
+        <li><b>기록 승계 가입</b> — 계정 없는 기존 환자 정보로 회원가입하면 진료기록이 자동 연결됩니다. 예: 강지호 / 1974-02-16 / <code>01020031006</code> (전화는 하이픈 없이 입력). 한 글자라도 다르면 새 환자로 생성됩니다.</li>
+        <li><b>서류 발급</b> — patient1이 신청(대상 진료 선택) → doctor1 대시보드 '내 담당 신청'에서 발급 → patient1 서류 목록 [열람]으로 서류 확인·인쇄(PDF 저장).</li>
+        <li><b>지시 채널</b> — doctor1이 환자 검색 EMR에서 지시 작성 → nurse1 대시보드에서 [확인]→[수행] 처리.</li>
+        <li><b>재진 제안</b> — doctor1이 EMR에서 재진 제안 → patient1 예약 탭 '제안된 예약'에서 확정/거절.</li>
+        <li><b>수납 결제</b> — patient1 수납에서 미납 전체 결제(토스 테스트 환경, 실제 청구 없음). 미납이 소진되면 <code>node db/seed-unpaid-bills.js</code>로 보충.</li>
+        <li><b>시연 전 데이터 정리</b> — <code>node db/fix-demo-data.js</code> · <code>node db/seed-demo-refresh.js</code> 실행으로 일정·간호기록을 최신 날짜로 유지.</li>
+      </ul>
+    </div>
+  </div><!-- /tab-guide -->
 </div>
 <script>
 (function(){
@@ -339,7 +418,7 @@
   });
 
   // ── 탭 전환 — 활성 탭을 location.hash(#accounts/#personas/#avatars)에 반영, 새로고침 유지 ──
-  var TABS = { accounts: '계정 관리', personas: '페르소나', avatars: '아바타' };
+  var TABS = { accounts: '계정 관리', personas: '페르소나', avatars: '아바타', guide: '시연 가이드' };
   var headSub = document.getElementById('headSub');
   function currentTab(){
     var h = (location.hash || '').replace(/^#/, '');
