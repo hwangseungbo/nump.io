@@ -1536,7 +1536,7 @@
     if (!btn) return;
     function apply(on) {
       document.body.classList.toggle('font-lg', on);
-      btn.textContent = on ? '가 기본 크기' : '가 크게 보기';
+      btn.textContent = on ? '글씨 기본 크기' : '글씨 크게 보기';
     }
     var saved = false;
     try { saved = localStorage.getItem('bn.fontLg') === '1'; } catch (e) {}
