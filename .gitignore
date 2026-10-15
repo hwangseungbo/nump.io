@@ -22,3 +22,8 @@ db.config.json
 
 # 결제 키 (never commit)
 payments.config.json
+
+# medipencil 스냅샷 보호
+medipencil/**/adapter.env
+medipencil/**/*.war
+medipencil/**/*.wav

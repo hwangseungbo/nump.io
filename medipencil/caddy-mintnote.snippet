@@ -1,0 +1,17 @@
+# MediPencil(MintNote) 서브도메인 — /etc/caddy/Caddyfile 맨 아래에 추가
+# 적용: sudo cp 또는 편집 후  sudo systemctl reload caddy
+# 전제: 후이즈에 mintnote.nump.io A레코드(222.113.84.169) 등록 완료
+# (deploy/nginx.conf.example의 업로드 500MB·타임아웃 360s·버퍼링 해제를 캐디로 옮긴 것)
+
+mintnote.nump.io {
+	request_body {
+		max_size 500MB
+	}
+	reverse_proxy 127.0.0.1:8080 {
+		flush_interval -1
+		transport http {
+			read_timeout 360s
+			write_timeout 360s
+		}
+	}
+}

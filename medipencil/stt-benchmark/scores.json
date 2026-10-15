@@ -1,0 +1,101 @@
+[
+ {
+  "engine": "qwen-1.7b-ko",
+  "label": "TeamUNIVA qwen3_asr_1.7b_ko",
+  "cer": 1.7,
+  "terms": "14/15",
+  "misses": [
+   "암로디핀"
+  ],
+  "load_s": 56.9,
+  "transcribe_s": 48.7,
+  "rtf": 0.643
+ },
+ {
+  "engine": "fw-turbo",
+  "label": "faster-whisper large-v3-turbo",
+  "cer": 3.1,
+  "terms": "13/15",
+  "misses": [
+   "메트포르민",
+   "142"
+  ],
+  "load_s": 3.8,
+  "transcribe_s": 13.6,
+  "rtf": 0.18
+ },
+ {
+  "engine": "fw-medium",
+  "label": "faster-whisper medium",
+  "cer": 3.4,
+  "terms": "9/15",
+  "misses": [
+   "암로디핀",
+   "메트포르민",
+   "142",
+   "식단관리",
+   "회식",
+   "식이조절"
+  ],
+  "load_s": 3.4,
+  "transcribe_s": 17.1,
+  "rtf": 0.225
+ },
+ {
+  "engine": "fw-small",
+  "label": "faster-whisper small (현 운영)",
+  "cer": 4.5,
+  "terms": "8/15",
+  "misses": [
+   "암로디핀",
+   "메트포르민",
+   "텔미사르탄",
+   "당뇨병성",
+   "공복혈당",
+   "식단관리",
+   "식이조절"
+  ],
+  "load_s": 1.4,
+  "transcribe_s": 6.9,
+  "rtf": 0.091
+ },
+ {
+  "engine": "qwen-0.6b",
+  "label": "Qwen3-ASR-0.6B",
+  "cer": 5.6,
+  "terms": "12/15",
+  "misses": [
+   "암로디핀",
+   "회식",
+   "저릿저릿"
+  ],
+  "load_s": 29.0,
+  "transcribe_s": 32.6,
+  "rtf": 0.431
+ },
+ {
+  "engine": "sensevoice",
+  "label": "SenseVoiceSmall (FunASR)",
+  "cer": 57.5,
+  "terms": "1/15",
+  "misses": [
+   "당화혈색소",
+   "암로디핀",
+   "메트포르민",
+   "텔미사르탄",
+   "당뇨병성",
+   "말초신경병증",
+   "신경전도검사",
+   "142",
+   "138",
+   "공복혈당",
+   "식단관리",
+   "회식",
+   "식이조절",
+   "150에95"
+  ],
+  "load_s": 3.3,
+  "transcribe_s": 2.6,
+  "rtf": 0.034
+ }
+]

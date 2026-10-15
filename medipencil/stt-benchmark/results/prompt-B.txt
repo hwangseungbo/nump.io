@@ -1,0 +1,32 @@
+S - Subjective
+* 주소증: 양측 발바닥 저림(numbness)
+* 발병 시기: 1~2개월 전부터 발생함.
+* 증상 특성: 양측성으로 나타나며, 특히 야간에 저릿저릿한 느낌이 심해짐.
+* 가정 혈압: 수축기 혈압 150~160mmHg, 이완기 혈압 95mmHg 수준으로 측정됨.
+* 복약 순응도: 암로디핀(amlodipine)의 경우 주 2~3회 복용을 누락함.
+* 생활 습관: 최근 잦은 회식으로 인해 식단 관리가 불량했음.
+
+O - Objective
+* 당화혈색소(HbA1c): 7.2% (이전 6.8% 대비 상승)
+* 공복혈당(fasting blood glucose): 140mg/dL 이상
+* 저밀도 지질단백질 콜레스테롤(LDL-cholesterol): 138mg/dL
+
+A - Assessment
+* 고혈압(hypertension): 약제 복용 불이행 및 혈압 조절 미흡.
+* 제2형 당뇨병(type 2 diabetes mellitus): 혈당 조절 상태 악화.
+* 당뇨병성 말초신경병증(diabetic peripheral neuropathy): 가능성 높음.
+
+P - Plan
+* 검사: 신경전도 검사(nerve conduction study) 시행 예정.
+* 약물 처방:
+    * 암로디핀(amlodipine) 유지.
+    * 텔미사르탄(telmisartan) 40mg 추가 처방.
+    * 메트포르민(metformin) 유지.
+* 생활 습관 교육:
+    * 식이조절 재시행.
+    * 절주 권고.
+    * 하루 30분 걷기 운동 권고.
+* 복귀 지침: 발의 감각 저하 심화, 궤양 발생 또는 혈압/혈당의 급격한 변동 시 즉시 내원.
+
+--- 진료보조정보 (사적 대화 메모)
+* 최근 회식이 많았음.
