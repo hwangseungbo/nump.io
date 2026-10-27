@@ -2206,7 +2206,11 @@ async function buildPatientCtx(db, me) {
       `SELECT e.visited_at, e.department, e.chief_complaint, u.name AS doctor
          FROM encounters e LEFT JOIN users u ON u.id=e.doctor_id
         WHERE e.patient_id=$1 ORDER BY e.visited_at DESC LIMIT 1`, [p.id]),
-    db.query(`SELECT item, amount FROM bills WHERE patient_id=$1 AND NOT paid ORDER BY billed_at DESC LIMIT 3`, [p.id]),
+    // 윈도우 함수로 전체 미납 합계·건수를 항상 포함 (LIMIT은 나열 항목 수만 제한)
+    db.query(
+      `SELECT item, amount, sum(amount) OVER ()::int AS total, count(*) OVER ()::int AS n
+         FROM bills WHERE patient_id=$1 AND NOT paid
+        ORDER BY billed_at DESC LIMIT 10`, [p.id]),
   ]);
   const now = new Date();
   const L = [CTX_HEAD];
@@ -2223,8 +2227,12 @@ async function buildPatientCtx(db, me) {
     const e = en.rows[0];
     L.push(`최근 진료: ${fmtDate(new Date(e.visited_at))} ${e.department}${e.doctor ? ' ' + e.doctor + ' 원장' : ''}${e.chief_complaint ? ' — ' + e.chief_complaint : ''}`);
   }
-  if (bi.rows.length)
-    L.push('미납 진료비: ' + bi.rows.map((b) => `${b.item} ${Number(b.amount).toLocaleString('ko-KR')}원`).join(', '));
+  if (bi.rows.length) {
+    const { total, n } = bi.rows[0];
+    L.push(`미납 진료비: 총 ${Number(total).toLocaleString('ko-KR')}원 (${n}건) — `
+      + bi.rows.map((b) => `${b.item} ${Number(b.amount).toLocaleString('ko-KR')}원`).join(', ')
+      + (n > bi.rows.length ? ` 외 ${n - bi.rows.length}건` : ''));
+  }
   return L.join('\n');
 }
 
