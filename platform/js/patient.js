@@ -1197,8 +1197,10 @@
       failUrl: base + '?pay=fail',
       customerName: d.customerName || '',
       card: { useEscrow: false, flowMode: 'DEFAULT', useCardPoint: false, useAppCardOnly: false }
-    }).catch(function () { // 사용자가 결제창을 닫으면 reject됨
-      toast('결제가 취소되었습니다');
+    }).catch(function (err) { // 사용자가 결제창을 닫으면 USER_CANCEL로 reject됨
+      console.warn('[patient] requestPayment 실패:', err && err.code, err && err.message, err);
+      if (err && err.code === 'USER_CANCEL') toast('결제가 취소되었습니다');
+      else toast('결제창 오류: ' + ((err && err.message) || '알 수 없는 오류'), true);
     });
   }
 

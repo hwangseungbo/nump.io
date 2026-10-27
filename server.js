@@ -63,7 +63,8 @@ const FEAT = { allergies: false, reason: false, patientSummary: false, vitalsExt
 })();
 
 // ── 결제(토스페이먼츠) 설정 ─────────────────────────────────
-// 기본값은 토스 공식 문서의 공용 테스트 키(실결제 없음 — 커밋 가능).
+// 기본값이던 토스 문서 공용 테스트 키는 2026-10 폐기됨(샌드박스 401) — 실제 키는
+// 개발자센터 "API 개별 연동" 테스트 키(test_ck_/test_sk_; 위젯 gck 키는 결제창 미지원).
 // 운영 키는 프로젝트 루트의 payments.config.json으로 덮어쓴다 (gitignore).
 let PAY_CONF = {
   tossClientKey: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
