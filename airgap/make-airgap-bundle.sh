@@ -36,6 +36,12 @@ for b in caddy node; do
   else echo "  ! $b 바이너리를 찾지 못함 — 수동 포함 필요"; fi
 done
 
+echo "[6.5/7] 시스템 설정 수집 (systemd 유닛·Caddyfile·어댑터 crontab)"
+mkdir -p "$OUT/system"
+cp /etc/systemd/system/nump-web.service "$OUT/system/" 2>/dev/null || echo "  ! nump-web.service 없음"
+cp /etc/caddy/Caddyfile "$OUT/system/Caddyfile" 2>/dev/null || echo "  ! /etc/caddy/Caddyfile 없음"
+crontab -l 2>/dev/null | grep adapter > "$OUT/system/crontab-adapter.txt" || true
+
 echo "[7/7] 매니페스트·체크섬"
 { echo "생성: $(date -Is) / 호스트: $(hostname)"
   docker --version; python3 --version
