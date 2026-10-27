@@ -30,7 +30,7 @@ const DISCHARGE_TARGETS = [
   [24, '하진서'],   // "이번 달 퇴원 0" 해소
   [5,  '정승환'],
 ];
-const NEW_DRUG = 'Cetirizine syrup 5mg/5mL (세티리진 시럽)';
+const NEW_DRUG = '지르텍액1mg/mL(세티리진)'; // seed-drug-master.js 한글 표기와 일치 유지
 const NEW_DOSAGE = '1일 1회, 저녁 식후';
 
 (async () => {

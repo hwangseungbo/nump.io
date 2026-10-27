@@ -42,12 +42,12 @@ const NOTE_TEXT = {
   '간호기록': '상태 안정, 특이사항 없음'
 };
 // 투약 보정용 기본 처방 풀 (seed-demo2 RX_POOL 계열)
-const RX_POOL = [
-  ['Omeprazole 20mg', '1일 1회, 아침 식전'],
-  ['Acetaminophen 650mg', '1일 3회, 식후'],
-  ['Amlodipine 5mg', '1일 1회, 아침 식후'],
-  ['Levocetirizine 5mg', '1일 1회, 취침 전'],
-  ['Ibuprofen 400mg', '1일 3회, 식후'],
+const RX_POOL = [ // 표기는 seed-drug-master.js의 한글 제품명과 일치시킬 것 (마스터 연결 유지)
+  ['로섹캡슐20mg(오메프라졸)', '1일 1회, 아침 식전'],
+  ['타이레놀이알서방정650mg(아세트아미노펜)', '1일 3회, 식후'],
+  ['노바스크정5mg(암로디핀)', '1일 1회, 아침 식후'],
+  ['씨잘정5mg(레보세티리진)', '1일 1회, 취침 전'],
+  ['부루펜정400mg(이부프로펜)', '1일 3회, 식후'],
 ];
 const DOCS_ADD = [ // [환자 순번(입원자 목록 기준), doc_type, 상대일, status]
   [0, '검사결과서', 0, 'requested'], [2, '진단서', 0, 'requested'],
