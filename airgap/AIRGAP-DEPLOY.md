@@ -9,7 +9,7 @@
 |---|---|---|---|
 | nump.io 웹 (Node/pg) | Pretendard 폰트 CDN(@import — index.html·platform/*·lifoneer·visioneer) | 폰트 파일 셀프호스팅으로 교체 | ⚠ 작업 필요 |
 | 〃 | 토스페이먼츠 API(데모 결제), 유튜브 임베드 1곳 | 폐쇄망 빌드에서 비활성/제거 (PAYMENTS_ENABLED=false 유지) | ⚠ 빌드 시 처리 |
-| server.js → SageFM LLM | `AI_UPSTREAM` 165.132.220.115:5096 **하드코딩** | 환경변수화 후 병원 내 GPU 서버(vLLM)나 로컬 LLM 주소로 교체 — **최대 블로커** | ⚠ 작업 필요 |
+| server.js → SageFM LLM | SageFM 외부 서버 호출(기본값 165.132.220.115:5096) | 환경변수 `AI_UPSTREAM=host:port[/path]`로 교체 가능(2026-10-27 환경변수화 완료) — 내부 LLM 서버 확보는 별도 과제 | ✅ 코드 / ⚠ LLM 수급 |
 | Node 런타임·npm | 의존성은 `pg` 뿐 | node 바이너리 + node_modules 통째 반입 | ✅ 번들 |
 | PostgreSQL 14 | apt 설치 | 오프라인 debs 또는 도커 이미지 반입 + 스키마/시드 덤프 | ✅ 절차 |
 | Caddy | Let's Encrypt ACME 발급/갱신 | `tls internal`(캐디 자체 CA, 루트 인증서를 병원 PC에 배포) 또는 기관 CA 인증서 지정 | ✅ 절차 |
@@ -34,8 +34,10 @@
 caddy·node 바이너리, Caddy 스니펫, MANIFEST·SHA256SUMS.
 
 **번들에 자동 포함되지 않는 것(수동 준비)**: MediPencil 원본 ZIP(.env 생성 스크립트 포함),
-DB 백업(운영 데이터 이전 시), docker 엔진 설치 파일, PostgreSQL debs, OS 패키지,
-adapter.env(현장에서 새 토큰 발급: `openssl rand -hex 24`).
+DB 백업(운영 데이터 이전 시 — `pg_dump -h 127.0.0.1 -U basil -d basilnexus -Fc -f basilnexus.dump`),
+docker 엔진 설치 파일, PostgreSQL debs, OS 패키지,
+adapter.env(현장에서 새 토큰 발급: `openssl rand -hex 24`),
+db.config.json·payments.config.json(토스 결제 키 — 결제 데모 시 복사, 커밋·번들 금지).
 
 ## 3. 폐쇄망 설치 순서 (요약)
 
@@ -44,8 +46,10 @@ adapter.env(현장에서 새 토큰 발급: `openssl rand -hex 24`).
 3. 어댑터: `pip install --no-index --find-links pip-wheels flask faster-whisper`
    → 모델 캐시를 `~/.cache/huggingface/hub/`에 복사 → adapter.env 작성(새 토큰,
    `WHISPER_MODEL=large-v3-turbo`) → 환경에 `HF_HUB_OFFLINE=1` → 기동, crontab @reboot 등록
-4. 웹: node 바이너리 + nump.io-main.tgz 전개, PostgreSQL 설치·스키마/시드 적재,
-   db.config.json 작성, AI_UPSTREAM을 내부 LLM 주소로 수정, systemd 등록
+4. 웹: node 바이너리 + nump.io-main.tgz 전개, PostgreSQL 설치·DB 덤프 복원
+   (`pg_restore -d basilnexus basilnexus.dump`), db.config.json 작성(+결제 데모 시
+   payments.config.json), systemd 등록 — 유닛에 `Environment=AI_UPSTREAM=내부LLM주소:포트`
+   설정(미설정 시 외부 SageFM 기본값), `./sync-public.sh`로 public/ 생성
 5. Caddy: 바이너리 복사, Caddyfile에서 각 site 블록에 `tls internal` 추가,
    생성된 루트 CA(`~/.local/share/caddy/pki/authorities/local/root.crt`)를 병원 PC 브라우저에 신뢰 등록
 6. 내부 DNS/hosts에 nump.io·mintnote.nump.io → 서버 IP 등록
@@ -53,7 +57,8 @@ adapter.env(현장에서 새 토큰 발급: `openssl rand -hex 24`).
 
 ## 4. 남은 작업 항목 (폐쇄망 완전 대응까지)
 
-- [ ] server.js `AI_UPSTREAM` 환경변수/설정파일화 (현재 하드코딩 2187행)
+- [x] server.js `AI_UPSTREAM` 환경변수화 (2026-10-27 — `AI_UPSTREAM=host:port[/path]`,
+      미설정 시 기존 SageFM 기본값)
 - [ ] Pretendard 폰트 셀프호스팅 전환 (CDN @import 제거 — 전 페이지)
 - [ ] 폐쇄망 빌드 플래그: 유튜브 임베드·토스페이먼츠 코드 비활성 경로
 - [ ] 어댑터 adapter.py에 HF_HUB_OFFLINE 자동 설정 옵션(adapter.env 키) 추가

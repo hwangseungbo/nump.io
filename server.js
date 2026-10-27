@@ -2185,7 +2185,17 @@ async function guardPlatform(req, res, pathname) {
 }
 
 // ── Basil Nexus AI 프록시 ───────────────────────────────────
-const AI_UPSTREAM = { host: '165.132.220.115', port: 5096, path: '/api/chat' };
+// 폐쇄망/이전 배포 시 환경변수 AI_UPSTREAM="host:port[/path]"로 교체
+// (예: systemd 유닛에 Environment=AI_UPSTREAM=10.0.0.5:8000/api/chat).
+// 미설정·형식 오류면 기존 SageFM 외부 서버 기본값 유지.
+const AI_UPSTREAM = (() => {
+  const def = { host: '165.132.220.115', port: 5096, path: '/api/chat' };
+  const v = process.env.AI_UPSTREAM;
+  if (!v) return def;
+  const m = String(v).trim().match(/^([^:/\s]+):(\d{1,5})(\/\S*)?$/);
+  if (!m) { console.warn(`AI_UPSTREAM 형식 오류("${v}") — 기본값 사용`); return def; }
+  return { host: m[1], port: Number(m[2]), path: m[3] || def.path };
+})();
 
 // 대시보드 공용 챗(ai.js)이 ctx:true를 보내면 로그인 역할에 맞는 실데이터
 // 컨텍스트를 message 앞에 첨부한다. 목적형 프롬프트(SageFM 요약 등)는 ctx 미전송.

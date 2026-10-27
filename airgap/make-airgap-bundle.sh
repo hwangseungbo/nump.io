@@ -26,7 +26,8 @@ cp /home/nump/Basil_Nexus/nump.io-main/medipencil/sagefm-adapter/adapter.env.exa
 echo "[5/7] 웹사이트 아카이브 (node_modules 포함, .git/public 제외)"
 tar -C /home/nump/Basil_Nexus -czf "$OUT/site/nump.io-main.tgz" \
     --exclude='nump.io-main/.git' --exclude='nump.io-main/public' \
-    --exclude='nump.io-main/db.config.json' nump.io-main
+    --exclude='nump.io-main/db.config.json' \
+    --exclude='nump.io-main/payments.config.json' nump.io-main
 
 echo "[6/7] 실행 바이너리·Caddy 설정 (같은 아키텍처 전제)"
 cp /home/nump/Basil_Nexus/medipencil/caddy-mintnote.snippet "$OUT/caddy/"
@@ -39,7 +40,7 @@ echo "[7/7] 매니페스트·체크섬"
 { echo "생성: $(date -Is) / 호스트: $(hostname)"
   docker --version; python3 --version
   node --version 2>/dev/null || true; caddy version 2>/dev/null || true
-  echo "미포함(수동 준비): MediPencil 원본 ZIP, DB 백업, docker 엔진 설치파일, PostgreSQL debs, adapter.env"
+  echo "미포함(수동 준비): MediPencil 원본 ZIP, DB 백업, docker 엔진 설치파일, PostgreSQL debs, adapter.env, db.config.json, payments.config.json(토스 키 — 결제 데모 시)"
 } > "$OUT/MANIFEST.txt"
 ( cd "$OUT" && find . -type f ! -name SHA256SUMS -exec sha256sum {} + > SHA256SUMS )
 du -sh "$OUT"
